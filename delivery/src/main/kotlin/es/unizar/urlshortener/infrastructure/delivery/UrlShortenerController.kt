@@ -4,6 +4,7 @@ import es.unizar.urlshortener.core.ClickProperties
 import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
+import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.hateoas.server.mvc.linkTo
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
+
 
 /**
  * The specification of the controller.
@@ -62,7 +64,8 @@ data class ShortUrlDataOut(
 class UrlShortenerControllerImpl(
     val redirectUseCase: RedirectUseCase,
     val logClickUseCase: LogClickUseCase,
-    val createShortUrlUseCase: CreateShortUrlUseCase
+    val createShortUrlUseCase: CreateShortUrlUseCase,
+    val reachableURIUseCase: ReachableURIUseCase
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
@@ -76,8 +79,15 @@ class UrlShortenerControllerImpl(
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
-        println("Received POST request to /api/link")
-
+        // Verifica si la URI es alcanzable
+        if (!reachableURIUseCase.reachable(data.url)) {
+            val errorResponse = ShortUrlDataOut(
+                url = null,
+                properties = mapOf("error" to "The destination URI is not reachable.")
+            )
+            val h = HttpHeaders()
+            return ResponseEntity<ShortUrlDataOut>(errorResponse, h, HttpStatus.BAD_REQUEST)
+        }
         return createShortUrlUseCase.create(
             url = data.url,
             data = ShortUrlProperties(
@@ -89,8 +99,6 @@ class UrlShortenerControllerImpl(
             val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url
 
-            println("Shortened URL: $url")
-
             val response = ShortUrlDataOut(
                 url = url,
                 properties = mapOf(
@@ -98,8 +106,8 @@ class UrlShortenerControllerImpl(
                 )
             )
 
-            println("Sending response with status 201 Created")
-
+            // Si la solicitud es procesada con éxito devuelve una respuesta con estado 201,
+            // una cabecera con la ruta a la URI recortada e información JSON sobre la URI recortada
             ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
     }
