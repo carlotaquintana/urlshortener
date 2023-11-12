@@ -24,22 +24,32 @@ class CreateShortUrlUseCaseImpl(
     private val reachableURIUseCase: ReachableURIUseCase
 ) : CreateShortUrlUseCase {
     // Create a short url from a long url
-    override fun create(url: String, data: ShortUrlProperties): ShortUrl =
-        // Check if the url is valid and reachable
-        if (validatorService.isValid(url) && reachableURIUseCase.reachable(url)) {
-            val id: String = hashService.hasUrl(url)
-            val su = ShortUrl(
-                hash = id,
-                redirection = Redirection(target = url),
-                properties = ShortUrlProperties(
-                    safe = data.safe,
-                    ip = data.ip,
-                    sponsor = data.sponsor
-                )
-            )
-            shortUrlRepository.save(su)
-        }
-        else {
+    override fun create(url: String, data: ShortUrlProperties): ShortUrl {
+        // Check if the URL is valid
+        if (!validatorService.isValid(url)) {
             throw InvalidUrlException(url)
         }
+
+        // Check if the URL is reachable
+        if (!reachableURIUseCase.reachable(url)) {
+            throw UnreachableUriException("URI not reachable")
+        }
+
+        // Generate hash and create short URL
+        val id: String = hashService.hasUrl(url)
+        val su = ShortUrl(
+            hash = id,
+            redirection = Redirection(target = url),
+            properties = ShortUrlProperties(
+                safe = data.safe,
+                ip = data.ip,
+                sponsor = data.sponsor
+            )
+        )
+
+        // Save short URL
+        shortUrlRepository.save(su)
+
+        return su
+    }
 }

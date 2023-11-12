@@ -6,6 +6,7 @@ import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
+import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.never
@@ -41,6 +42,9 @@ class UrlShortenerControllerTest {
 
     @MockBean
     private lateinit var createShortUrlUseCase: CreateShortUrlUseCase
+
+    @MockBean
+    private lateinit var reachableURIUseCase: ReachableURIUseCase
 
     @Test
     fun `redirectTo returns a redirect when the key exists`() {
@@ -102,5 +106,18 @@ class UrlShortenerControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.statusCode").value(400))
+    }
+    @Test
+    fun `creates returns bad request if URI is not reachable`() {
+        given(reachableURIUseCase.reachable("ftp://example.com/")).willReturn(false)
+
+        mockMvc.perform(
+            post("/api/link")
+                .param("url", "ftp://example.com/")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.statusCode").value(400))
+            .andExpect(jsonPath("$.error").value("URI not reachable after 3 attempts"))
     }
 }
