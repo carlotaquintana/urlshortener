@@ -69,13 +69,21 @@ class UrlShortenerControllerImpl(
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
-    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
+    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
+        // Se comprueba si la URI asociada a id es alcanzable
+        if (!reachableURIUseCase.reachable(id)) {
+            // Si la URI no es alcanzable, se devuelve 403 Forbidden
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+        }
+
+        // Si la URI es alcanzable, se procede con la redirección
         redirectUseCase.redirectTo(id).let {
             logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
             val h = HttpHeaders()
             h.location = URI.create(it.target)
-            ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+            return ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
         }
+    }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
