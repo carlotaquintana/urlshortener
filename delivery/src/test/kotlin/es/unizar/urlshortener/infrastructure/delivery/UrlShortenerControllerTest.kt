@@ -47,13 +47,19 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var reachableURIUseCase: ReachableURIUseCase
 
+    // Se ha modificado para hacer que la URI sea alcanzable (sino devolvía un 403 en
+    // vez de un 307).
     @Test
     fun `redirectTo returns a redirect when the key exists`() {
-        given(redirectUseCase.redirectTo("key")).willReturn(Redirection("http://example.com/"))
+        val reachableUrl = "http://example.com/"
+        given(redirectUseCase.redirectTo("key")).willReturn(Redirection(reachableUrl))
+        given(reachableURIUseCase.reachable(reachableUrl)).willReturn(true)
 
         mockMvc.perform(get("/{id}", "key"))
+
+            // Se espera que la respuesta sea 307 Temporary Redirect
             .andExpect(status().isTemporaryRedirect)
-            .andExpect(redirectedUrl("http://example.com/"))
+            .andExpect(redirectedUrl(reachableUrl))
 
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
@@ -79,6 +85,7 @@ class UrlShortenerControllerTest {
                 data = ShortUrlProperties(ip = "127.0.0.1")
             )
         ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
+        given(reachableURIUseCase.reachable("http://example.com/")).willReturn(true)
 
         mockMvc.perform(
             post("/api/link")
@@ -100,6 +107,8 @@ class UrlShortenerControllerTest {
             )
         ).willAnswer { throw InvalidUrlException("ftp://example.com/") }
 
+        given(reachableURIUseCase.reachable("ftp://example.com/")).willReturn(true)
+
         mockMvc.perform(
             post("/api/link")
                 .param("url", "ftp://example.com/")
@@ -110,7 +119,7 @@ class UrlShortenerControllerTest {
     }
 
     @Test
-    fun `create returns bad request if URI is not reachable`() {
+    fun `create returns 400 bad request if URI is not reachable`() {
         // Dada una URI no alcanzable
         val unreachableUrl = "http://unreachable-url.com/"
         given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
@@ -127,7 +136,7 @@ class UrlShortenerControllerTest {
     }
 
     @Test
-    fun `should return HTTP 403 when URI is not reachable during redirection`() {
+    fun `returns HTTP 403 when URI is not reachable during redirection`() {
         // Dado un id registrado y una URI de destino no alcanzable
         val id = "existing-key"
         val unreachableUrl = "http://unreachable-url.com/"
@@ -140,4 +149,5 @@ class UrlShortenerControllerTest {
             // Se espera un error 403
             .andExpect(status().isForbidden)
     }
+
 }
