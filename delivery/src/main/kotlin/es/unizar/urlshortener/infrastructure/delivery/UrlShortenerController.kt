@@ -5,17 +5,21 @@ import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
+import java.rmi.registry.LocateRegistry
 
 /**
  * The specification of the controller.
@@ -62,12 +66,17 @@ data class ShortUrlDataOut(
 class UrlShortenerControllerImpl(
     val redirectUseCase: RedirectUseCase,
     val logClickUseCase: LogClickUseCase,
-    val createShortUrlUseCase: CreateShortUrlUseCase
+    val createShortUrlUseCase: CreateShortUrlUseCase,
+    meterRegistry: MeterRegistry
+
 ) : UrlShortenerController {
 
-    @GetMapping("/{id:(?!api|index).*}")
+    val counter: Counter = meterRegistry.counter("demo_counter")
+
+    @GetMapping("/{id:(?!api|index|actuator).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
         redirectUseCase.redirectTo(id).let {
+            counter.increment()
             logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
             val h = HttpHeaders()
             h.location = URI.create(it.target)

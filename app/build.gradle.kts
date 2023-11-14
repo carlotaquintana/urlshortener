@@ -10,6 +10,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.webjars:bootstrap:${Version.BOOTSTRAP}")
     implementation("org.webjars:jquery:${Version.JQUERY}")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     runtimeOnly("org.hsqldb:hsqldb")
 
