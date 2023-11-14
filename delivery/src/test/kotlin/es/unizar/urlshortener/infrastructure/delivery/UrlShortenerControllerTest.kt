@@ -104,21 +104,27 @@ class UrlShortenerControllerTest {
             .andExpect(jsonPath("$.statusCode").value(400))
     }
 
+    // Si se ha excedido el límite, se devuelve un 429 Too Many Requests
     @Test
-    fun `redirectTo returns too many requests when the limit is exceeded`() {
-        // Se pone un límite de 5
-        val redirectionWithLimit = Redirection("http://example.com/", limit = 5)
+    fun `redirectTo returns a too many requests when the limit is exceeded`() {
+        given(redirectUseCase.redirectTo("key")).willReturn(Redirection("http://example.com/"))
+        given(redirectUseCase.isLimitExceeded("key")).willReturn(true)
 
-        given(redirectUseCase.redirectTo("key")).willReturn(redirectionWithLimit)
-
-        // Se llama al endpoint seis veces
-        repeat(6) {
-            mockMvc.perform(get("/{id}", "key"))
-        }
-
-        // Se espera recibir un 429 Too Many Requests
         mockMvc.perform(get("/{id}", "key"))
             .andExpect(status().isTooManyRequests)
     }
+
+    // Se mira el límite y si es negativo se devuelve un 400
+    @Test
+    fun `create returns bad request if the limit is negative`() {
+        mockMvc.perform(
+            post("/api/link")
+                .param("url", "http://example.com/")
+                .param("limit", "-1")  // límite negativo
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
+            .andExpect(status().isBadRequest)
+    }
+
 
 }

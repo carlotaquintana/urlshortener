@@ -35,13 +35,6 @@ interface UrlShortenerController {
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
     fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
-
-    /**
-     * Retrieves the limit and click count for a short url identified by its [id].
-     *
-     * **Note**: Delivery of use case [RedirectUseCase].
-     */
-    fun getShortUrlInfo(id: String): ResponseEntity<ShortUrlInfoData>
 }
 
 /**
@@ -50,7 +43,7 @@ interface UrlShortenerController {
 data class ShortUrlDataIn(
     val url: String,
     val sponsor: String? = null,
-    val limit: Int? = null
+    val limit: Int? = null // Nuevo campo para el límite
 )
 
 /**
@@ -60,15 +53,6 @@ data class ShortUrlDataOut(
     val url: URI? = null,
     val properties: Map<String, Any?> = emptyMap()
 )
-
-/**
- * Data returned after the creation of a short url.
- */
-data class ShortUrlInfoData(
-    val limit: Int? = null,
-    val clickCount: Int? = null
-)
-
 
 /**
  * The implementation of the controller.
@@ -84,7 +68,17 @@ class UrlShortenerControllerImpl(
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
+        // Si se ha excedido el límite, se devuelve un 429 Too Many Requests
+        if (redirectUseCase.isLimitExceeded(id)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build()
+        }
 
+        return redirectUseCase.redirectTo(id).let {
+            logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
+            val h = HttpHeaders()
+            h.location = URI.create(it.target)
+            ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+        }
 
     }
 
