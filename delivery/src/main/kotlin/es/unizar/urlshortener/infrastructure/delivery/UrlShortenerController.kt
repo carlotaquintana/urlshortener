@@ -74,37 +74,33 @@ class UrlShortenerControllerImpl(
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
-        redirectUseCase.redirectTo(id).let { targetUri ->
-            reachableURIUseCase.reachable(targetUri.target).let { reachable ->
-                if (reachable) {
-                    logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
-                    val h = HttpHeaders()
-                    h.location = URI.create(targetUri.target)
-                    return ResponseEntity<Unit>(h, HttpStatus.valueOf(targetUri.mode))
-                }
-                else{
-                    // No es alcanzable. Devuelve respuesta con estado 403
-                    val h = HttpHeaders()
-                    return ResponseEntity<Unit>(h, HttpStatus.FORBIDDEN)
-                }
+        redirectUseCase.redirectTo(id).let {
+            // Mirar si es alcanzable
+            if(reachableURIUseCase.reachable(it.target)){
+                // Se hace lo que se hacía en el GET antes
+                logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
+                val h = HttpHeaders()
+                h.location = URI.create(it.target)
+                return ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+            }
+            else{
+                // Si no es alcanzable se devuelve un error 403
+                val h = HttpHeaders()
+                return ResponseEntity<Unit>(h, HttpStatus.FORBIDDEN)
             }
         }
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
-        // Hace 3 peticiones GET a la URI de destino para comprobar si es alcanzable
-        val reachable = isUriReachable(data.url)
-
-        if (!reachable) {
-            val errorResponse = ShortUrlDataOut(
-                url = null,
-                properties = mapOf("error" to "The destination URI is not reachable.")
-            )
+        // Si la URI no es alcanzable, devuelve 400 Bad Request
+        if (!reachableURIUseCase.reachable(data.url)) {
             val h = HttpHeaders()
-            return ResponseEntity<ShortUrlDataOut>(errorResponse, h, HttpStatus.BAD_REQUEST)
+            return ResponseEntity<ShortUrlDataOut>(h, HttpStatus.BAD_REQUEST)
         }
-        return createShortUrlUseCase.create(
+
+        // Si la URI es alcanzable, se crea la URL corta
+        createShortUrlUseCase.create(
             url = data.url,
             data = ShortUrlProperties(
                 ip = request.remoteAddr,
@@ -114,40 +110,13 @@ class UrlShortenerControllerImpl(
             val h = HttpHeaders()
             val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url
-
             val response = ShortUrlDataOut(
                 url = url,
                 properties = mapOf(
                     "safe" to it.properties.safe
                 )
             )
-
-            // Si la solicitud es procesada con éxito devuelve una respuesta con estado 201,
-            // una cabecera con la ruta a la URI recortada e información JSON sobre la URI recortada
-            ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
+            return ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
-    }
-    // 3 peticiones GET para comprobar si la URI de destino es alcanzable
-    private fun isUriReachable(uri: String): Boolean {
-        var attempt = 0
-        while (attempt < 3) {
-            try {
-                val connection = URL(uri).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    return true
-                }
-            } catch (e: Exception) {
-                // Cualquier excepción se considera que la URI no es alcanzable
-                return false
-            }
-
-            attempt++
-            // Espaciar las peticiones un segundo
-            TimeUnit.SECONDS.sleep(1)
-        }
-
-        return false
     }
 }

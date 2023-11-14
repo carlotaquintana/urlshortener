@@ -108,18 +108,36 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.statusCode").value(400))
     }
+
     @Test
-    fun `should return HTTP 200 when URI is reachable`() {
-        // Given a reachable URI
-        val reachableUrl = "http://example.com/"
-        given(reachableURIUseCase.reachable(reachableUrl)).willReturn(true)
+    fun `create returns bad request if URI is not reachable`() {
+        // Dada una URI no alcanzable
+        val unreachableUrl = "http://unreachable-url.com/"
+        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
 
-        // When making a GET request to the controller endpoint
-        mockMvc.perform(get("/{id}", "key"))
+        // Se hace un POST
+        mockMvc.perform(
+            post("/api/link")
+                .param("url", unreachableUrl)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
 
-            // Then expect the response status to be OK (HTTP 200)
-            .andExpect(status().isOk)
-
+            // Se espera un error 400 Bad Request
+            .andExpect(status().isBadRequest)
     }
 
+    @Test
+    fun `should return HTTP 403 when URI is not reachable during redirection`() {
+        // Dado un id registrado y una URI de destino no alcanzable
+        val id = "existing-key"
+        val unreachableUrl = "http://unreachable-url.com/"
+        given(redirectUseCase.redirectTo(id)).willReturn(Redirection(unreachableUrl))
+        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
+
+        // Se hace un GET
+        mockMvc.perform(get("/{id}", id))
+
+            // Se espera un error 403
+            .andExpect(status().isForbidden)
+    }
 }

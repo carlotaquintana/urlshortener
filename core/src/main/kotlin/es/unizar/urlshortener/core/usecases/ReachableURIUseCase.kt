@@ -27,16 +27,26 @@ class ReachableURIUseCaseImpl : ReachableURIUseCase {
         // Crea un cliente
         val client = HttpClient.newBuilder().build()
 
-        // Crea una request
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(uri))
-            .method("HEAD", HttpRequest.BodyPublishers.noBody())
-            .build()
+        // Máximo de 3 peticiones GET espaciadas 1s
+        for (attempt in 1..MAX_ATTEMPTS){
+            val request = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build()
 
-        // Realiza la petición
-        val response = client.send(request, HttpResponse.BodyHandlers.discarding())
+            // Realiza la petición
+            val response = client.send(request, HttpResponse.BodyHandlers.discarding())
 
-        // Si la respuesta es 4xx o 5xx, la URI no es alcanzable ya que el servidor no la ha encontrado
-        return response.statusCode() < 400
+            // Si la respuesta es 200, se retorna (correcto)
+            if (response.statusCode() == 200) {
+                return true
+            }
+
+            // Se espera 1s a hacer la siguiente petición
+            Thread.sleep(Duration.ofSeconds(ATTEMPT_DELAY_SECONDS).toMillis())
+        }
+
+        // Si no se ha devuelto ya true es que no es alcanzable
+        return false
     }
 }
