@@ -35,6 +35,13 @@ interface UrlShortenerController {
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
     fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
+
+    /**
+     * Retrieves the limit and click count for a short url identified by its [id].
+     *
+     * **Note**: Delivery of use case [RedirectUseCase].
+     */
+    fun getShortUrlInfo(id: String): ResponseEntity<ShortUrlInfoData>
 }
 
 /**
@@ -42,7 +49,8 @@ interface UrlShortenerController {
  */
 data class ShortUrlDataIn(
     val url: String,
-    val sponsor: String? = null
+    val sponsor: String? = null,
+    val limit: Int? = null
 )
 
 /**
@@ -50,8 +58,17 @@ data class ShortUrlDataIn(
  */
 data class ShortUrlDataOut(
     val url: URI? = null,
-    val properties: Map<String, Any> = emptyMap()
+    val properties: Map<String, Any?> = emptyMap()
 )
+
+/**
+ * Data returned after the creation of a short url.
+ */
+data class ShortUrlInfoData(
+    val limit: Int? = null,
+    val clickCount: Int? = null
+)
+
 
 /**
  * The implementation of the controller.
@@ -66,32 +83,38 @@ class UrlShortenerControllerImpl(
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
-    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
-        redirectUseCase.redirectTo(id).let {
-            logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
-            val h = HttpHeaders()
-            h.location = URI.create(it.target)
-            ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
-        }
+    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
+
+
+    }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
-    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> =
-        createShortUrlUseCase.create(
-            url = data.url,
-            data = ShortUrlProperties(
-                ip = request.remoteAddr,
-                sponsor = data.sponsor
-            )
-        ).let {
-            val h = HttpHeaders()
-            val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
-            h.location = url
-            val response = ShortUrlDataOut(
-                url = url,
-                properties = mapOf(
-                    "safe" to it.properties.safe
-                )
-            )
-            ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
+    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
+        // Se mira el límite y si es negativo se devuelve un 400
+        if (data.limit != null && data.limit < 0) {
+            return ResponseEntity.badRequest().build()
         }
+
+        val properties = ShortUrlProperties(
+            ip = request.remoteAddr,
+            sponsor = data.sponsor,
+            limit = data.limit
+        )
+
+        val result = createShortUrlUseCase.create(url = data.url, data = properties)
+
+        val h = HttpHeaders()
+        val url = linkTo<UrlShortenerControllerImpl> { redirectTo(result.hash, request) }.toUri()
+        h.location = url
+
+        val response = ShortUrlDataOut(
+            url = url,
+            properties = mapOf(
+                "safe" to result.properties.safe,
+                "limit" to properties.limit
+            )
+        )
+
+        return ResponseEntity(response, h, HttpStatus.CREATED)
+    }
 }

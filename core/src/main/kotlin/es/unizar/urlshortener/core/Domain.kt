@@ -28,7 +28,8 @@ data class ShortUrl(
  */
 data class Redirection(
     val target: String,
-    val mode: Int = 307
+    val mode: Int = 307,
+    val limit: Int? = null // Nuevo campo para el límite
 )
 
 /**
@@ -39,7 +40,8 @@ data class ShortUrlProperties(
     val sponsor: String? = null,
     val safe: Boolean = true,
     val owner: String? = null,
-    val country: String? = null
+    val country: String? = null,
+    val limit: Int? = null // Nuevo campo para el límite
 )
 
 /**
