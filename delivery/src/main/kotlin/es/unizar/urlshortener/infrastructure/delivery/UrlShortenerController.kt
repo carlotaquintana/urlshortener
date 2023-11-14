@@ -1,6 +1,7 @@
 package es.unizar.urlshortener.infrastructure.delivery
 
 import es.unizar.urlshortener.core.ClickProperties
+import es.unizar.urlshortener.core.RedirectionNotFound
 import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
@@ -16,7 +17,10 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
+import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URL
+import java.util.concurrent.TimeUnit
 
 
 /**
@@ -70,25 +74,29 @@ class UrlShortenerControllerImpl(
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
-        // Se comprueba si la URI asociada a id es alcanzable
-        if (!reachableURIUseCase.reachable(id)) {
-            // Si la URI no es alcanzable, se devuelve 403 Forbidden
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build()
-        }
-
-        // Si la URI es alcanzable, se procede con la redirección
-        redirectUseCase.redirectTo(id).let {
-            logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
-            val h = HttpHeaders()
-            h.location = URI.create(it.target)
-            return ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+        redirectUseCase.redirectTo(id).let { targetUri ->
+            reachableURIUseCase.reachable(targetUri.target).let { reachable ->
+                if (reachable) {
+                    logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
+                    val h = HttpHeaders()
+                    h.location = URI.create(targetUri.target)
+                    return ResponseEntity<Unit>(h, HttpStatus.valueOf(targetUri.mode))
+                }
+                else{
+                    // No es alcanzable. Devuelve respuesta con estado 403
+                    val h = HttpHeaders()
+                    return ResponseEntity<Unit>(h, HttpStatus.FORBIDDEN)
+                }
+            }
         }
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
-        // Verifica si la URI es alcanzable
-        if (!reachableURIUseCase.reachable(data.url)) {
+        // Hace 3 peticiones GET a la URI de destino para comprobar si es alcanzable
+        val reachable = isUriReachable(data.url)
+
+        if (!reachable) {
             val errorResponse = ShortUrlDataOut(
                 url = null,
                 properties = mapOf("error" to "The destination URI is not reachable.")
@@ -118,5 +126,28 @@ class UrlShortenerControllerImpl(
             // una cabecera con la ruta a la URI recortada e información JSON sobre la URI recortada
             ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
+    }
+    // 3 peticiones GET para comprobar si la URI de destino es alcanzable
+    private fun isUriReachable(uri: String): Boolean {
+        var attempt = 0
+        while (attempt < 3) {
+            try {
+                val connection = URL(uri).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    return true
+                }
+            } catch (e: Exception) {
+                // Cualquier excepción se considera que la URI no es alcanzable
+                return false
+            }
+
+            attempt++
+            // Espaciar las peticiones un segundo
+            TimeUnit.SECONDS.sleep(1)
+        }
+
+        return false
     }
 }

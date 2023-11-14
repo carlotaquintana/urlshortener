@@ -6,8 +6,8 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 
-/*
-* We want to verify that a URI is reachable.
+/**
+* Class that verifies if a URI is reachable.
 *
 * *[reachable]* checks if a URI is reachable or not.
 *
@@ -15,7 +15,6 @@ import java.time.Duration
 
 interface ReachableURIUseCase {
     fun reachable(uri: String): Boolean
-
 }
 
 /**
@@ -23,32 +22,21 @@ interface ReachableURIUseCase {
  */
 class ReachableURIUseCaseImpl : ReachableURIUseCase {
     private val MAX_ATTEMPTS = 3
-    private val ATTEMPT_DELAY_SECONDS = 1L
+    private val ATTEMPT_DELAY_SECONDS = 1L // 1s de delay
     override fun reachable(uri: String): Boolean {
-        var attempts = 0
-        while (attempts < MAX_ATTEMPTS) {
-            val client = HttpClient.newHttpClient()
-            val request = HttpRequest.newBuilder()
-                .uri(URI.create(uri))
-                .timeout(Duration.ofSeconds(ATTEMPT_DELAY_SECONDS))
-                .method("GET", HttpRequest.BodyPublishers.noBody())
-                .build()
+        // Crea un cliente
+        val client = HttpClient.newBuilder().build()
 
-            val response = try {
-                client.send(request, HttpResponse.BodyHandlers.discarding())
-            } catch (e: Exception) {
-                // Manejar cualquier excepción que pueda ocurrir durante la solicitud
-                null
-            }
+        // Crea una request
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(uri))
+            .method("HEAD", HttpRequest.BodyPublishers.noBody())
+            .build()
 
-            if (response != null && response.statusCode() == 200) {
-                return true
-            }
+        // Realiza la petición
+        val response = client.send(request, HttpResponse.BodyHandlers.discarding())
 
-            attempts++
-            Thread.sleep(ATTEMPT_DELAY_SECONDS * 1000) // Espaciar las solicitudes en 1 segundo
-        }
-        return false
-
+        // Si la respuesta es 4xx o 5xx, la URI no es alcanzable ya que el servidor no la ha encontrado
+        return response.statusCode() < 400
     }
 }
