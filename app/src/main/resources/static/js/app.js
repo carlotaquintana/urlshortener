@@ -1,4 +1,5 @@
 function getData(event) {
+    // Prevent the form from submitting via the browser.
     event.preventDefault();
     getURL(document.getElementsByName('url').item(0).value,
         document.getElementsByName('qr').item(0).checked);
@@ -42,7 +43,7 @@ function getURL(url, qr){
 function getQR(url, hash){
     var widthProp = "-webkit-fill-available"
 
-        fetch(`/${hash}/qr`).then(response => {
+        fetch('/${hash}/qr').then(response => {
                 if(!response.ok) {
                     throw Error(response.status)
                 }
