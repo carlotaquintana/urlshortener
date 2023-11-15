@@ -4,8 +4,10 @@ import es.unizar.urlshortener.core.ClickProperties
 import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
+import es.unizar.urlshortener.core.usecases.QrUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -35,6 +37,11 @@ interface UrlShortenerController {
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
     fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
+
+    /**
+     * Generates a QR code for a short url identified by its [id].
+     */
+    fun generateQr(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
 }
 
 /**
@@ -62,36 +69,52 @@ data class ShortUrlDataOut(
 class UrlShortenerControllerImpl(
     val redirectUseCase: RedirectUseCase,
     val logClickUseCase: LogClickUseCase,
-    val createShortUrlUseCase: CreateShortUrlUseCase
+    val createShortUrlUseCase: CreateShortUrlUseCase,
+    val qrUseCase: QrUseCase
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
-        redirectUseCase.redirectTo(id).let {
-            logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
-            val h = HttpHeaders()
-            h.location = URI.create(it.target)
-            ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
-        }
+            redirectUseCase.redirectTo(id).let {
+                logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
+                val h = HttpHeaders()
+                h.location = URI.create(it.target)
+                ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+            }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> =
-        createShortUrlUseCase.create(
-            url = data.url,
-            data = ShortUrlProperties(
-                ip = request.remoteAddr,
-                sponsor = data.sponsor
-            )
-        ).let {
-            val h = HttpHeaders()
-            val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
-            h.location = url
-            val response = ShortUrlDataOut(
-                url = url,
-                properties = mapOf(
-                    "safe" to it.properties.safe
+            createShortUrlUseCase.create(
+                    url = data.url,
+                    data = ShortUrlProperties(
+                            ip = request.remoteAddr,
+                            sponsor = data.sponsor
+                    )
+            ).let {
+                val h = HttpHeaders()
+                val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
+                h.location = url
+                val response = ShortUrlDataOut(
+                        url = url,
+                        properties = mapOf(
+                                "safe" to it.properties.safe,
+                                //Se pasa dentro de properties porque shortUrlDataOut esta
+                                // definido solo con url y properties
+                                "hash" to it.hash
+                        )
                 )
-            )
-            ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
-        }
+                ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
+            }
+
+    @GetMapping("/{id:(?!api|index).*}/qr")
+    override fun generateQr(
+            @PathVariable id: String,
+            request: HttpServletRequest
+    ): ResponseEntity<ByteArrayResource> =
+            qrUseCase.generateQR(id, linkTo<UrlShortenerControllerImpl> { redirectTo(id, request) }.toString()
+            ).let {
+                ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_PNG)
+                        .body(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE))
+            }
 }
