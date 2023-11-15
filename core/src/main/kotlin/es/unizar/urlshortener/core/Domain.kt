@@ -41,7 +41,9 @@ data class ShortUrlProperties(
     val safe: Boolean = true,
     val owner: String? = null,
     val country: String? = null,
-    val limit: Int? = null // Nuevo campo para el límite
+    val limit: Int? = null,
+    val redirectCount: Int = 0,
+    val lastRedirectDateTime: OffsetDateTime? = null
 )
 
 /**
