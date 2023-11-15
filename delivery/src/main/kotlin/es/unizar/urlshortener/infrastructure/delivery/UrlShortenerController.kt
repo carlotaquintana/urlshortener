@@ -6,6 +6,7 @@ import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.hateoas.server.mvc.linkTo
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
+import java.lang.management.ManagementFactory
+import java.lang.management.OperatingSystemMXBean
 import java.net.URI
 import java.rmi.registry.LocateRegistry
 
@@ -72,6 +75,7 @@ class UrlShortenerControllerImpl(
 ) : UrlShortenerController {
 
     val counter: Counter = meterRegistry.counter("demo_counter")
+    val URIcounter: Counter = meterRegistry.counter("uri_counter")
 
     @GetMapping("/{id:(?!api|index|actuator).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
@@ -92,6 +96,7 @@ class UrlShortenerControllerImpl(
                 sponsor = data.sponsor
             )
         ).let {
+            URIcounter.increment()
             val h = HttpHeaders()
             val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url

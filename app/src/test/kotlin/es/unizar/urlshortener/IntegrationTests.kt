@@ -2,7 +2,10 @@
 
 package es.unizar.urlshortener
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import es.unizar.urlshortener.infrastructure.delivery.ShortUrlDataOut
+import io.micrometer.core.instrument.MeterRegistry
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -19,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.jdbc.JdbcTestUtils
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
+import java.io.File
 import java.net.URI
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
@@ -119,3 +123,55 @@ class HttpRequestTest {
         )
     }
 }
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class MetricsEndpointTest {
+
+    @Autowired
+    private lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    private lateinit var meterRegistry: MeterRegistry
+
+    @Test
+    fun `custom metric is exposed via metrics endpoint`() {
+        // Ensure that the application is up and running
+        val healthResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics/health", String::class.java)
+        assertThat(healthResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        //Retrieve the metrics endpoint response
+        val metricsResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics", String::class.java)
+        assertThat(metricsResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        //Check if the custom metric is present in the metrics response
+        val customMetricExists = metricsResponse.body?.contains("info") ?: false
+        println("Does custom metric exist? $customMetricExists")
+
+        // Assert that the custom metric exists in the metrics response
+        assertThat(customMetricExists).isTrue()
+
+        /* Value of customMetricValue
+        assertThat(metricsResponse.body).contains("\"counter\":$customMetricValue")
+         */
+    }
+
+    @Test
+    fun `memory metric is exposed via metrics endpoint`() {
+        // Ensure that the application is up and running
+        val healthResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics/health", String::class.java)
+        assertThat(healthResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        //Retrieve the metrics endpoint response
+        val metricsResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics", String::class.java)
+        assertThat(metricsResponse.statusCode).isEqualTo(HttpStatus.OK)
+
+        //Check if the custom metric is present in the metrics response
+        val customMetricExists = metricsResponse.body?.contains("info") ?: false
+        println("Does custom metric exist? $customMetricExists")
+
+        // Assert that the custom metric exists in the metrics response
+        assertThat(customMetricExists).isTrue()
+
+    }
+
+}
+

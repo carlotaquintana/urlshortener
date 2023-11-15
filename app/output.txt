@@ -1,0 +1,5 @@
+{"_links":{"self":{"href":"http://localhost:8080/api/metrics","templated":false},
+"health":{"href":"http://localhost:8080/api/metrics/health","templated":false},
+"health-path":{"href":"http://localhost:8080/api/metrics/health/{*path}","templated":true},
+"info":{"href":"http://localhost:8080/api/metrics/info","templated":false},
+"prometheus":{"href":"http://localhost:8080/api/metrics/prometheus","templated":false}}}
