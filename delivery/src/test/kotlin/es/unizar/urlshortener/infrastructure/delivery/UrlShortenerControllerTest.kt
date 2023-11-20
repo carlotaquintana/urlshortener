@@ -156,6 +156,4 @@ class UrlShortenerControllerTest {
             data = ShortUrlProperties(ip = "127.0.0.1", limit = 5)
         )
     }
-
-
 }
