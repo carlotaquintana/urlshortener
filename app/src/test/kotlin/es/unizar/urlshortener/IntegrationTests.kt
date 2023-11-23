@@ -132,9 +132,6 @@ class MetricsEndpointTest {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
-    @Autowired
-    private lateinit var meterRegistry: MeterRegistry
-
     @Test
     fun `custom metric is exposed via metrics endpoint`() {
         // Ensure that the application is up and running

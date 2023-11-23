@@ -7,16 +7,17 @@ import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCusto
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
-//@Configuration
+@Configuration
 class MetricsConfiguration {
     @Bean
     fun metricsCommonTags(): MeterRegistryCustomizer<MeterRegistry> {
         return MeterRegistryCustomizer { registry: MeterRegistry ->
             registry.config()
-                    .meterFilter(MeterFilter.deny { id: Meter.Id ->
-                        val name = id.name
-                        !("metric1" == name || "metric2" == name) // Include only metric1 and metric2
-                    })
+                .meterFilter(MeterFilter.deny { id: Meter.Id ->
+                    val name = id.name
+                    !("jvm.memory.used" == name || "process.cpu.usage" == name ||
+                            "app.metric.redirect_counter" == name || "app.metric.uri_counter" == name)
+                })
         }
     }
 }

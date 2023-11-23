@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
  * Sirve para tema de escalabilidad. Coger ideas de aqui
  */
 //@Component
-class CustomInfo(val  meterRegistry: MeterRegistry) : InfoContributor {
+class CustomInfo(private val  meterRegistry: MeterRegistry) : InfoContributor {
     // Se crea el endpoint de info
     override fun contribute(builder: Info.Builder) {
         builder.withDetail("counter", meterRegistry.counter("app.metric.redirect_counter").count())
