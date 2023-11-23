@@ -4,10 +4,14 @@ package es.unizar.urlshortener
 
 import com.jayway.jsonpath.JsonPath
 import es.unizar.urlshortener.infrastructure.delivery.ShortUrlDataOut
-import io.micrometer.core.instrument.MeterRegistry
+import io.restassured.RestAssured
+import io.restassured.RestAssured.given
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,11 +26,6 @@ import org.springframework.test.jdbc.JdbcTestUtils
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import java.net.URI
-import io.restassured.RestAssured
-import io.restassured.RestAssured.given
-import io.restassured.http.ContentType
-import org.hamcrest.Matchers.*
-import java.io.File
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class HttpRequestTest {
@@ -129,31 +128,6 @@ class HttpRequestTest {
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MetricsEndpointTest {
 
-    @Autowired
-    private lateinit var restTemplate: TestRestTemplate
-
-    @Test
-    fun `custom metric is exposed via metrics endpoint`() {
-        // Ensure that the application is up and running
-        val healthResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics/health", String::class.java)
-        assertThat(healthResponse.statusCode).isEqualTo(HttpStatus.OK)
-
-        //Retrieve the metrics endpoint response
-        val metricsResponse = restTemplate.getForEntity("http://localhost:8080/api/metrics", String::class.java)
-        assertThat(metricsResponse.statusCode).isEqualTo(HttpStatus.OK)
-
-        //Check if the custom metric is present in the metrics response
-        val customMetricExists = metricsResponse.body?.contains("info") ?: false
-        println("Does custom metric exist? $customMetricExists")
-
-        // Assert that the custom metric exists in the metrics response
-        assertThat(customMetricExists).isTrue()
-
-        /* Value of customMetricValue
-        assertThat(metricsResponse.body).contains("\"counter\":$customMetricValue")
-         */
-    }
-
     @Test
     fun testMetricsRedirect_counter() {
 
@@ -190,6 +164,65 @@ class MetricsEndpointTest {
                 .body("measurements[0].value", equalTo(0.0f))
     }
 
+    @Test
+    fun testMetricsjvm_memory_used() {
+
+        RestAssured.baseURI = "http://localhost"
+        RestAssured.port = 8080
+
+        val response = RestAssured.get("/api/stats/metrics/jvm.memory.used")
+
+        val jsonPathName = response.path<String>("name")
+        val jsonPathDescription = response.path<String>("description")
+        val jsonPathBaseUnit = response.path<String>("baseUnit")
+        val jsonPathMeasurementsStatistic = response.path<String>("measurements[0].statistic")
+        val jsonPathMeasurementsValue = response.path<Number>("measurements[0].value")
+        val jsonPathAvailableTagsTag = response.path<String>("availableTags[0].tag")
+        val jsonPathAvailableTagsValues = response.path<List<String>>("availableTags[0].values")
+        val jsonPathAvailableTagsTag2 = response.path<String>("availableTags[1].tag")
+        val jsonPathAvailableTagsValues2 = response.path<List<String>>("availableTags[1].values")
+
+        assertEquals("jvm.memory.used", jsonPathName)
+        assertEquals("The amount of used memory", jsonPathDescription)
+        assertEquals("bytes", jsonPathBaseUnit)
+        assertEquals("VALUE", jsonPathMeasurementsStatistic)
+        assertTrue(jsonPathMeasurementsValue is Number)
+        assertEquals("area", jsonPathAvailableTagsTag)
+        assertEquals(listOf("heap", "nonheap"), jsonPathAvailableTagsValues)
+        assertEquals("id", jsonPathAvailableTagsTag2)
+        assertEquals(
+                listOf(
+                        "G1 Survivor Space",
+                        "Compressed Class Space",
+                        "G1 Old Gen",
+                        "Metaspace",
+                        "CodeCache",
+                        "G1 Eden Space"
+                ),
+                jsonPathAvailableTagsValues2
+        )
+    }
+
+    @Test
+    fun testMetrics_process_cpu_usage() {
+
+        RestAssured.baseURI = "http://localhost"
+        RestAssured.port = 8080
+
+        val response = RestAssured.get("/api/stats/metrics/process.cpu.usage") // Asegúrate de obtener la respuesta JSON
+
+        val jsonPathName = response.path<String>("name")
+        val jsonPathDescription = response.path<String>("description")
+        val jsonPathMeasurementsStatistic = response.path<String>("measurements[0].statistic")
+        val jsonPathMeasurementsValue = response.path<Number>("measurements[0].value")
+        val jsonPathAvailableTags = response.path<List<Any>>("availableTags")
+
+        assertEquals("process.cpu.usage", jsonPathName)
+        assertEquals("The \"recent cpu usage\" for the Java Virtual Machine process", jsonPathDescription)
+        assertEquals("VALUE", jsonPathMeasurementsStatistic)
+        assertTrue(jsonPathMeasurementsValue is Number)
+        assertTrue(jsonPathAvailableTags.isEmpty())
+    }
 
 }
 
