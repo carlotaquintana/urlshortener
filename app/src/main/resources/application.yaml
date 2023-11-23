@@ -8,9 +8,10 @@ spring:
   jpa:
     open-in-view: false
 
+# Quito health,info
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
-      base-path: /api/metrics
+        include: metrics
+      base-path: /api/stats

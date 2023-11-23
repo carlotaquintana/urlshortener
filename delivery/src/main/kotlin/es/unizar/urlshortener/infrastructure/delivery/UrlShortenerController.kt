@@ -74,13 +74,14 @@ class UrlShortenerControllerImpl(
 
 ) : UrlShortenerController {
 
-    val counter: Counter = meterRegistry.counter("demo_counter")
-    val URIcounter: Counter = meterRegistry.counter("uri_counter")
+    val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
+    val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
 
-    @GetMapping("/{id:(?!api|index|actuator).*}")
+    /* Atrapa todo lo que no empieza por lo especificado */
+    @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> =
         redirectUseCase.redirectTo(id).let {
-            counter.increment()
+            redirectCounter.increment()
             logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
             val h = HttpHeaders()
             h.location = URI.create(it.target)
@@ -96,7 +97,7 @@ class UrlShortenerControllerImpl(
                 sponsor = data.sponsor
             )
         ).let {
-            URIcounter.increment()
+            uriCounter.increment()
             val h = HttpHeaders()
             val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url

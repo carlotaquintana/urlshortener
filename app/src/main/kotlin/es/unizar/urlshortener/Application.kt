@@ -29,11 +29,15 @@ fun main(args: Array<String>) {
     runApplication<Application>(*args)
 }
 
-@Component
+/**
+ * Sirve para tema de escalabilidad. Coger ideas de aqui
+ */
+//@Component
 class CustomInfo(val  meterRegistry: MeterRegistry) : InfoContributor {
+    // Se crea el endpoint de info
     override fun contribute(builder: Info.Builder) {
-        builder.withDetail("counter", meterRegistry.counter("demo_counter").count())
-        builder.withDetail("URIcounter", meterRegistry.counter("uri_counter").count())
+        builder.withDetail("counter", meterRegistry.counter("app.metric.redirect_counter").count())
+        builder.withDetail("URIcounter", meterRegistry.counter("app.metric.uri_counter").count())
 
         val usedMemory = meterRegistry.find("jvm.memory.used")
                 .tags("area", "heap")

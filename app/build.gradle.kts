@@ -12,6 +12,7 @@ dependencies {
     implementation("org.webjars:jquery:${Version.JQUERY}")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("io.rest-assured:rest-assured:4.4.1")
 
 
     runtimeOnly("org.hsqldb:hsqldb")
