@@ -74,7 +74,7 @@ class UrlShortenerControllerImpl(
 
 ) : UrlShortenerController {
 
-    val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
+    val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter", )
     val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
 
     /* Atrapa todo lo que no empieza por lo especificado */

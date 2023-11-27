@@ -15,9 +15,13 @@ class MetricsConfiguration {
             registry.config()
                 .meterFilter(MeterFilter.deny { id: Meter.Id ->
                     val name = id.name
-                    !("jvm.memory.used" == name || "process.cpu.usage" == name ||
-                            "app.metric.redirect_counter" == name || "app.metric.uri_counter" == name)
+                    when (name) {
+                        "jvm.memory.used", "process.cpu.usage",
+                        "app.metric.redirect_counter", "app.metric.uri_counter" -> false
+                        else -> true
+                    }
                 })
         }
     }
 }
+

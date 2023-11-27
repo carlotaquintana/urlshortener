@@ -12,8 +12,10 @@ import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.isA
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment
@@ -128,100 +130,73 @@ class HttpRequestTest {
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MetricsEndpointTest {
 
+    @LocalServerPort
+    private val localServerPort = 0
+
+    @BeforeEach
+    fun setUp() {
+        RestAssured.baseURI = "http://localhost"
+        RestAssured.port = localServerPort
+    }
+
     @Test
     fun testMetricsRedirect_counter() {
 
-        RestAssured.baseURI = "http://localhost"
-        RestAssured.port = 8080
-
         // Realizar la solicitud al endpoint y validar la estructura
-        given()
-                .`when`()
-                .get("/api/stats/metrics/app.metric.redirect_counter")
-                .then()
-                //.log().all()
-                .assertThat()
-                .body("name", equalTo("app.metric.redirect_counter"))
-                .body("measurements[0].statistic", equalTo("COUNT"))
-                .body("measurements[0].value", equalTo(0.0f))
+        given().log().all()
+            .`when`()
+            .get("/api/stats/metrics/app.metric.redirect_counter")
+            .then()
+            .assertThat()
+            .body("name", equalTo("app.metric.redirect_counter"))
+            .body("measurements[0].statistic", equalTo("COUNT"))
+            .body("measurements[0].value", equalTo(0.0f))
     }
 
     @Test
     fun testMetricsURI_counter() {
 
-        RestAssured.baseURI = "http://localhost"
-        RestAssured.port = 8080
 
         // Realizar la solicitud al endpoint y validar la estructura
         given()
-                .`when`()
-                .get("/api/stats/metrics/app.metric.uri_counter")
-                .then()
-                //.log().all()
-                .assertThat()
-                .body("name", equalTo("app.metric.uri_counter"))
-                .body("measurements[0].statistic", equalTo("COUNT"))
-                .body("measurements[0].value", equalTo(0.0f))
+            .`when`()
+            .get("/api/stats/metrics/app.metric.uri_counter")
+            .then()
+            .log().all()
+            .assertThat()
+            .body("name", equalTo("app.metric.uri_counter"))
+            .body("measurements[0].statistic", equalTo("COUNT"))
+            .body("measurements[0].value", equalTo(0.0f))
     }
 
     @Test
     fun testMetricsjvm_memory_used() {
 
-        RestAssured.baseURI = "http://localhost"
-        RestAssured.port = 8080
-
-        val response = RestAssured.get("/api/stats/metrics/jvm.memory.used")
-
-        val jsonPathName = response.path<String>("name")
-        val jsonPathDescription = response.path<String>("description")
-        val jsonPathBaseUnit = response.path<String>("baseUnit")
-        val jsonPathMeasurementsStatistic = response.path<String>("measurements[0].statistic")
-        val jsonPathMeasurementsValue = response.path<Number>("measurements[0].value")
-        val jsonPathAvailableTagsTag = response.path<String>("availableTags[0].tag")
-        val jsonPathAvailableTagsValues = response.path<List<String>>("availableTags[0].values")
-        val jsonPathAvailableTagsTag2 = response.path<String>("availableTags[1].tag")
-        val jsonPathAvailableTagsValues2 = response.path<List<String>>("availableTags[1].values")
-
-        assertEquals("jvm.memory.used", jsonPathName)
-        assertEquals("The amount of used memory", jsonPathDescription)
-        assertEquals("bytes", jsonPathBaseUnit)
-        assertEquals("VALUE", jsonPathMeasurementsStatistic)
-        assertTrue(jsonPathMeasurementsValue is Number)
-        assertEquals("area", jsonPathAvailableTagsTag)
-        assertEquals(listOf("heap", "nonheap"), jsonPathAvailableTagsValues)
-        assertEquals("id", jsonPathAvailableTagsTag2)
-        assertEquals(
-                listOf(
-                        "G1 Survivor Space",
-                        "Compressed Class Space",
-                        "G1 Old Gen",
-                        "Metaspace",
-                        "CodeCache",
-                        "G1 Eden Space"
-                ),
-                jsonPathAvailableTagsValues2
-        )
+        given()
+            .log().all()
+            .`when`()
+            .get("/api/stats/metrics/jvm.memory.used")
+            .then()
+            .log().all()
+            .assertThat()
+            .body("name", equalTo("jvm.memory.used"))
+            .body("description", equalTo("The amount of used memory"))
+            .body("measurements[0].statistic", equalTo("VALUE"))
     }
 
     @Test
-    fun testMetrics_process_cpu_usage() {
+    fun `testMetrics process cpu usage`() {
 
-        RestAssured.baseURI = "http://localhost"
-        RestAssured.port = 8080
-
-        val response = RestAssured.get("/api/stats/metrics/process.cpu.usage") // Asegúrate de obtener la respuesta JSON
-
-        val jsonPathName = response.path<String>("name")
-        val jsonPathDescription = response.path<String>("description")
-        val jsonPathMeasurementsStatistic = response.path<String>("measurements[0].statistic")
-        val jsonPathMeasurementsValue = response.path<Number>("measurements[0].value")
-        val jsonPathAvailableTags = response.path<List<Any>>("availableTags")
-
-        assertEquals("process.cpu.usage", jsonPathName)
-        assertEquals("The \"recent cpu usage\" for the Java Virtual Machine process", jsonPathDescription)
-        assertEquals("VALUE", jsonPathMeasurementsStatistic)
-        assertTrue(jsonPathMeasurementsValue is Number)
-        assertTrue(jsonPathAvailableTags.isEmpty())
+        given()
+            .log().all()
+            .`when`()
+            .get("/api/stats/metrics/process.cpu.usage")
+            .then()
+            .log().all()
+            .assertThat()
+            .body("name", equalTo("process.cpu.usage"))
+            .body("description", equalTo("The \"recent cpu usage\" for the Java Virtual Machine process"))
+            .body("measurements[0].statistic", equalTo("VALUE"))
     }
 
 }

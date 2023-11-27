@@ -13,6 +13,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("io.rest-assured:rest-assured:4.4.1")
+    implementation("org.springframework.boot:spring-boot-starter-web")
 
 
     runtimeOnly("org.hsqldb:hsqldb")
