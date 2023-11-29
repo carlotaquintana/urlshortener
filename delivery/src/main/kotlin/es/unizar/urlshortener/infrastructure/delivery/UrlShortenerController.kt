@@ -33,7 +33,7 @@ interface UrlShortenerController {
      *
      * **Note**: Delivery of use cases [RedirectUseCase] and [LogClickUseCase].
      */
-    fun redirectTo(id: String, request: HttpServletRequest): ResponseEntity<Unit>
+    fun redirectTo(id: String, request: HttpServletRequest): ResponseEntity<Map<String, String>>
 
     /**
      * Creates a short url from details provided in [data].
@@ -73,7 +73,7 @@ class UrlShortenerControllerImpl(
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
-    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
+    override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
         redirectUseCase.redirectTo(id).let {
             // Mirar si es alcanzable
             if(reachableURIUseCase.reachable(it.target)){
@@ -81,12 +81,13 @@ class UrlShortenerControllerImpl(
                 logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
                 val h = HttpHeaders()
                 h.location = URI.create(it.target)
-                return ResponseEntity<Unit>(h, HttpStatus.valueOf(it.mode))
+                return ResponseEntity( h, HttpStatus.valueOf(it.mode))
             }
             else{
                 // Si no es alcanzable se devuelve un error 403
+                val errorResponse = mapOf("error" to "URI de destino no validada todavía")
                 val h = HttpHeaders()
-                return ResponseEntity<Unit>(h, HttpStatus.FORBIDDEN)
+                return ResponseEntity(errorResponse, h, HttpStatus.FORBIDDEN)
             }
         }
     }
