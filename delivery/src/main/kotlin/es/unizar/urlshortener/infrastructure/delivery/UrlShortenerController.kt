@@ -21,6 +21,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.util.concurrent.TimeUnit
+import es.unizar.urlshortener.core.queues.ReachableQueue
 
 
 /**
@@ -69,7 +70,8 @@ class UrlShortenerControllerImpl(
     val redirectUseCase: RedirectUseCase,
     val logClickUseCase: LogClickUseCase,
     val createShortUrlUseCase: CreateShortUrlUseCase,
-    val reachableURIUseCase: ReachableURIUseCase
+    val reachableURIUseCase: ReachableURIUseCase,
+    val reachableQueue: ReachableQueue
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
@@ -94,11 +96,8 @@ class UrlShortenerControllerImpl(
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
-        // Si la URI no es alcanzable, devuelve 400 Bad Request
-        if (!reachableURIUseCase.reachable(data.url)) {
-            val h = HttpHeaders()
-            return ResponseEntity<ShortUrlDataOut>(h, HttpStatus.BAD_REQUEST)
-        }
+        // Se añade la URI a la cola para verificación asíncrona
+        reachableQueue.addToQueue(data.url)
 
         // Si la URI es alcanzable, se crea la URL corta
         createShortUrlUseCase.create(
