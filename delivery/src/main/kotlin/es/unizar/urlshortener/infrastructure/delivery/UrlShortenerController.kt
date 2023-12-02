@@ -35,12 +35,9 @@ interface UrlShortenerController {
      *
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
-    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int? = null): ResponseEntity<ShortUrlDataOut>
+    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int? = null):
+            ResponseEntity<ShortUrlDataOut>
 
-    /**
-     * Obtiene información detallada de un short url identificado por su [id].
-     */
-    fun getShortUrlInfo(id: String): ResponseEntity<ShortUrlDataOut>
 }
 
 /**
@@ -90,7 +87,8 @@ class UrlShortenerControllerImpl(
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
-    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int?): ResponseEntity<ShortUrlDataOut> {
+    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int?):
+            ResponseEntity<ShortUrlDataOut> {
         // Se mira el límite y si es negativo se devuelve un 400
         if (limit != null && limit < 0) {
             return ResponseEntity.badRequest().build()
@@ -122,20 +120,4 @@ class UrlShortenerControllerImpl(
 
         return ResponseEntity(response, h, HttpStatus.CREATED)
     }
-
-    @GetMapping("/api/link/{id}")
-    override fun getShortUrlInfo(@PathVariable id: String): ResponseEntity<ShortUrlDataOut> {
-        // Obtiene el límite de redirecciones de la URI con identificador id
-        val limit = redirectUseCase.getLimit(id)
-
-        val info = ShortUrlDataOut(
-            properties = mapOf(
-                "limit" to limit,
-
-            )
-        )
-
-        return ResponseEntity(info, HttpStatus.OK)
-    }
-
 }

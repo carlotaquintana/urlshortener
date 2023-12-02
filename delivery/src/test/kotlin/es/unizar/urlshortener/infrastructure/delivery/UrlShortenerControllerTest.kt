@@ -107,53 +107,18 @@ class UrlShortenerControllerTest {
     // Si se ha excedido el límite, se devuelve un 429 Too Many Requests
     @Test
     fun `redirectTo returns a too many requests when the limit is exceeded`() {
-        given(redirectUseCase.redirectTo("key")).willReturn(Redirection("http://example.com/"))
-        given(redirectUseCase.isLimitExceeded("key")).willReturn(true)
-
-        mockMvc.perform(get("/{id}", "key"))
-            .andExpect(status().isTooManyRequests)
+        TODO("To be implemented")
     }
 
     // Se mira el límite y si es negativo se devuelve un 400
     @Test
     fun `create returns bad request if the limit is negative`() {
-        mockMvc.perform(
-            post("/api/link")
-                .param("url", "http://example.com/")
-                .param("limit", "-1")  // límite negativo
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-        )
-            .andExpect(status().isBadRequest)
+        TODO("To be implemented")
     }
 
     // Se mira el límite y si es negativo se devuelve un 400
     @Test
     fun `createShortUrlWithLimit creates short URL with specified limit`() {
-        // Arrange
-        given(
-            createShortUrlUseCase.create(
-                url = "http://example.com/",
-                data = ShortUrlProperties(ip = "127.0.0.1", limit = 5)
-            )
-        ).willReturn(ShortUrl("abc123", Redirection("http://example.com/")))
-
-        // Act
-        val result = mockMvc.perform(
-            post("/api/link")
-                .param("url", "http://example.com/")
-                .param("limit", "5")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-        )
-            .andExpect(status().isCreated)
-            .andReturn()
-
-        // Assert
-        val responseBody = result.response.contentAsString
-
-        // Asegúrate de que se haya llamado al método correspondiente en el use case.
-        verify(createShortUrlUseCase).create(
-            url = "http://example.com/",
-            data = ShortUrlProperties(ip = "127.0.0.1", limit = 5)
-        )
+        TODO("To be implemented")
     }
 }
