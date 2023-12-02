@@ -3,6 +3,7 @@ package es.unizar.urlshortener.infrastructure.delivery
 import es.unizar.urlshortener.core.ClickProperties
 import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
+import es.unizar.urlshortener.core.usecases.LimitUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import jakarta.servlet.http.HttpServletRequest
@@ -34,7 +35,7 @@ interface UrlShortenerController {
      *
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
-    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
+    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int? = null): ResponseEntity<ShortUrlDataOut>
 
     /**
      * Obtiene información detallada de un short url identificado por su [id].
@@ -69,16 +70,15 @@ data class ShortUrlDataOut(
 class UrlShortenerControllerImpl(
     val redirectUseCase: RedirectUseCase,
     val logClickUseCase: LogClickUseCase,
-    val createShortUrlUseCase: CreateShortUrlUseCase
+    val createShortUrlUseCase: CreateShortUrlUseCase,
+    val limitUseCase: LimitUseCase
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Unit> {
         // Cada vez que se llama a redirectTo se incrementa el número de redirecciones.
         // Si se ha excedido el límite, se devuelve un 429 Too Many Requests
-        if (redirectUseCase.isLimitExceeded(id)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build()
-        }
+        if(limitUseCase.limitExceeded(id)) return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build()
 
         return redirectUseCase.redirectTo(id).let {
             logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
@@ -90,18 +90,22 @@ class UrlShortenerControllerImpl(
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
-    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
+    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int?): ResponseEntity<ShortUrlDataOut> {
         // Se mira el límite y si es negativo se devuelve un 400
-        if (data.limit != null && data.limit < 0) {
+        if (limit != null && limit < 0) {
             return ResponseEntity.badRequest().build()
         }
 
         val properties = ShortUrlProperties(
             ip = request.remoteAddr,
             sponsor = data.sponsor,
-            limit = data.limit
+            limit = limit
         )
 
+        // Se añade la nueva redirección
+        limitUseCase.newRedirect(data.url, limit ?: 0)
+
+        // Se crea la URL
         val result = createShortUrlUseCase.create(url = data.url, data = properties)
 
         val h = HttpHeaders()
