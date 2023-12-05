@@ -36,7 +36,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
     @Suppress("MagicNumber")
     private val numConsumidores = 2 // Dos procesos consumidores
 
-
+    // Cola bloqueante para los comandos y ExecutorService para ejecutarlos
     private val queue = ArrayBlockingQueue<Callable<Unit>>(tamBloqueante)
     private val executorService = Executors.newFixedThreadPool(numConsumidores)
 
@@ -64,6 +64,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
             // Realizar la solicitud HTTP para obtener la métrica
             val response = restTemplate.getForObject(endpoint, Map::class.java)
 
+            // Procesa la respuesta para obtener el valor de la métrica
             val measurements = castToMapList(response?.get("measurements"))
             val metricValue = measurements?.firstOrNull()?.get("value")
 
@@ -71,6 +72,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
         }
     }
 
+    // Convierte la respuesta de la solicitud HTTP en una lista de mapas
     private fun castToMapList(value: Any?): List<Map<String, Any>>? {
         return if (value is List<*> && value.all { it is Map<*, *> }) {
             @Suppress("UNCHECKED_CAST")
@@ -80,6 +82,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
         }
     }
 
+    // Inicia los consumidores de la cola de comandos después de la inicialización
     @Suppress("unused")
     @PostConstruct
     private fun consumeQueue() {
