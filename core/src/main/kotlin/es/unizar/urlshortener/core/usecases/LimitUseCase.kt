@@ -52,6 +52,7 @@ class LimitUseCaseImpl: LimitUseCase {
 
         // Se crea la redireccion con el hash, el bucket y el límite
         val redirection = Triple(hash, bucket, limite)
+
         // Se añade la redireccion a la lista como un objeto de tipo URL (hash, bucket y límite)
         redirectionList.add(redirection)
     }
