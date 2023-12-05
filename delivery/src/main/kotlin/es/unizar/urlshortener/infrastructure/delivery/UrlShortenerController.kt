@@ -8,21 +8,19 @@ import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
-import java.lang.management.ManagementFactory
-import java.lang.management.OperatingSystemMXBean
 import java.net.URI
-import java.rmi.registry.LocateRegistry
+
 
 /**
  * The specification of the controller.
@@ -74,8 +72,10 @@ class UrlShortenerControllerImpl(
 
 ) : UrlShortenerController {
 
-    val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter", )
+    val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
     val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
+    //val uriGauge: Gauge = Gauge.builder("app.metric.uri_gauge", uriCounter) { it.count()}
+      //      .register(meterRegistry)
 
     /* Atrapa todo lo que no empieza por lo especificado */
     @GetMapping("/{id:(?!api|index).*}")

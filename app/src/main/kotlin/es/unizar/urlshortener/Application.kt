@@ -1,52 +1,44 @@
 package es.unizar.urlshortener
 
-import ch.qos.logback.core.util.SystemInfo
-import io.micrometer.core.instrument.Gauge
-import io.micrometer.core.instrument.Meter
-import io.micrometer.core.instrument.MeterRegistry
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.actuate.info.Info
-import org.springframework.boot.actuate.info.InfoContributor
-import org.springframework.boot.actuate.metrics.MetricsEndpoint
+import jakarta.annotation.PostConstruct
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.io.FileWriter
-import java.io.IOException
-import java.lang.management.ManagementFactory
-import java.lang.management.OperatingSystemMXBean
-import java.util.concurrent.CompletableFuture
 import org.springframework.web.client.RestTemplate
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 
-/**
- * The marker that makes this project a Spring Boot application.
- */
 @SpringBootApplication
 @EnableScheduling
 class Application {
     @Bean
     fun restTemplate(): RestTemplate {
-        return RestTemplate() // para realizar solicitudes HTTP
+        // Para realizar solicitudes HTTP
+        return RestTemplate()
     }
 }
 
-/**
- * The main entry point.
- */
 fun main(args: Array<String>) {
     @Suppress("SpreadOperator")
     runApplication<Application>(*args)
 }
 
-
 @Component
-class MetricCapture (private val restTemplate: RestTemplate) {
+class MetricCapture(private val restTemplate: RestTemplate) {
 
-    private val metricsEndpointUrl = "http://localhost:8080/api/stats/metrics"
+    @Suppress("MagicNumber")
+    private val tamBloqueante = 10 // Cola bloqueante de tamaño 10
+
+    @Suppress("MagicNumber")
+    private val numConsumidores = 2 // Dos procesos consumidores
+
+
+    private val queue = ArrayBlockingQueue<Callable<Unit>>(tamBloqueante)
+    private val executorService = Executors.newFixedThreadPool(numConsumidores)
 
     @Scheduled(fixedRate = 5000)
     fun captureMetricsAsync() {
@@ -58,11 +50,25 @@ class MetricCapture (private val restTemplate: RestTemplate) {
         )
 
         // Inicia la recolección de métricas para cada nombre en metricNames
-        val captureMetric = metricNames.map { metricName ->
-            captureMetricAsync(metricName)
-        }.toTypedArray()
+        metricNames.forEach { metricName ->
+            // Agrega el comando a la cola
+            queue.offer(createMetricCalculationCommand(metricName))
+        }
+    }
 
-        CompletableFuture.allOf(*captureMetric).join()
+    private fun createMetricCalculationCommand(metricName: String): Callable<Unit> {
+        return Callable {
+            // Construir la URL para la métrica específica
+            val endpoint = "http://localhost:8080/api/stats/metrics/$metricName"
+
+            // Realizar la solicitud HTTP para obtener la métrica
+            val response = restTemplate.getForObject(endpoint, Map::class.java)
+
+            val measurements = castToMapList(response?.get("measurements"))
+            val metricValue = measurements?.firstOrNull()?.get("value")
+
+            println("Metric $metricName: $metricValue")
+        }
     }
 
     private fun castToMapList(value: Any?): List<Map<String, Any>>? {
@@ -74,63 +80,18 @@ class MetricCapture (private val restTemplate: RestTemplate) {
         }
     }
 
-    @Async
-    fun captureMetricAsync(metricName: String): CompletableFuture<Unit> {
-        // Construye la URL para la métrica específica
-        val endpoint = "$metricsEndpointUrl/$metricName"
-        // Realiza una solicitud HTTP para obtener la métrica
-        val response = restTemplate.getForObject(endpoint, Map::class.java)
-
-        val measurements = castToMapList(response?.get("measurements"))
-
-        val metricValue = measurements?.firstOrNull()?.get("value")
-
-        println("Metric $metricName: $metricValue")
-
-        return CompletableFuture.completedFuture(Unit)
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-/**
- * Sirve para tema de escalabilidad. Coger ideas de aqui
- */
-//@Component
-class CustomInfo(private val  meterRegistry: MeterRegistry) : InfoContributor {
-    // Se crea el endpoint de info
-    override fun contribute(builder: Info.Builder) {
-        builder.withDetail("counter", meterRegistry.counter("app.metric.redirect_counter").count())
-        builder.withDetail("URIcounter", meterRegistry.counter("app.metric.uri_counter").count())
-
-        val usedMemory = meterRegistry.find("jvm.memory.used")
-                .tags("area", "heap")
-                .gauge()
-                ?.value()
-
-        builder.withDetail("jvm.memory.used", usedMemory)
-
-        // Obtener todos los medidores registrados en el MeterRegistry
-        val allMeters: List<Meter> = meterRegistry.meters
-
-        // Iterar sobre cada medidor y escribir detalles en el archivo
-        for (meter in allMeters) {
-            val meterName = meter.id.name
-            val meterType = meter.id.type
-
-            // Agregar detalles al Info.Builder
-            builder.withDetail("${meterType}.${meterName}", meter.measure().joinToString(", ") { "${it.value}" })
+    @Suppress("unused")
+    @PostConstruct
+    private fun consumeQueue() {
+        repeat(2) {
+            executorService.submit {
+                while (true) {
+                    // Toma un comando de la cola (bloqueante)
+                    val command = queue.take()
+                    // Ejecuta el comando (cálculo de métrica)
+                    command.call()
+                }
+            }
         }
-
     }
 }
