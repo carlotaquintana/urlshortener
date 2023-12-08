@@ -20,8 +20,7 @@ interface CreateShortUrlUseCase {
 class CreateShortUrlUseCaseImpl(
     private val shortUrlRepository: ShortUrlRepositoryService,
     private val validatorService: ValidatorService,
-    private val hashService: HashService,
-    private val reachableURIUseCase: ReachableURIUseCase
+    private val hashService: HashService
 ) : CreateShortUrlUseCase {
     // Create a short url from a long url
     override fun create(url: String, data: ShortUrlProperties): ShortUrl {
@@ -30,10 +29,6 @@ class CreateShortUrlUseCaseImpl(
             throw InvalidUrlException(url)
         }
 
-        // Check if the URL is reachable
-        if (!reachableURIUseCase.reachable(url)) {
-            throw UnreachableUriException("URI not reachable")
-        }
 
         // Generate hash and create short URL
         val id: String = hashService.hasUrl(url)

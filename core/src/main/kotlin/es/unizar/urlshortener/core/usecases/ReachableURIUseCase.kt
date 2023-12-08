@@ -5,6 +5,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 
@@ -16,13 +17,18 @@ import java.util.concurrent.ExecutionException
 */
 
 interface ReachableURIUseCase {
+    /**
+     * Comprueba si una URI es alcanzable o no.
+     * @param uri URI a comprobar
+     * @return true si es alcanzable, false si no lo es
+     */
     fun reachable(uri: String): Boolean
 }
 
 /**
- *
+ * Implementation of [ReachableURIUseCase].
  */
-class ReachableURIUseCaseImpl : ReachableURIUseCase {
+class ReachableURIUseCaseImpl (): ReachableURIUseCase {
     private val MAX_ATTEMPTS = 3
     private val ATTEMPT_DELAY_SECONDS = 1L // 1s de delay
     override fun reachable(uri: String): Boolean {
