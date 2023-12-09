@@ -1,5 +1,6 @@
 package es.unizar.urlshortener.core.queues
 
+import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
@@ -10,8 +11,8 @@ import java.util.concurrent.BlockingQueue
  */
 @Component
 open class ColaAlcanzable(
-    private val colaAlcanzable: BlockingQueue<String>
-    //private val reachableURIUseCase: ReachableURIUseCase
+    private val colaAlcanzable: BlockingQueue<String>,
+    private val reachableURIUseCase: ReachableURIUseCase
 )
 {
 
@@ -24,13 +25,11 @@ open class ColaAlcanzable(
     @Scheduled(fixedDelay = 500L)
     open
     fun executor() {
-        println("Verificando alcanzabilidad...")
-        // Si la cola no está vacía
         if (!colaAlcanzable.isEmpty()) {
             // Se saca el primer elemento de la cola y se comprueba si es alcanzable
-            val result = colaAlcanzable.take()
-            println("Comprobando si $result es alcanzable...")
-
+            val uri = colaAlcanzable.take()
+            println("Comprobando si $uri es alcanzable...")
+            reachableURIUseCase.verifyReachability(uri)
         }
     }
 }

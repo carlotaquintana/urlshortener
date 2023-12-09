@@ -13,6 +13,7 @@ import es.unizar.urlshortener.infrastructure.repositories.ShortUrlRepositoryServ
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.time.OffsetDateTime
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -49,8 +50,13 @@ class ApplicationConfiguration(
         CreateShortUrlUseCaseImpl(shortUrlRepositoryService(), validatorService(), hashService())
 
     @Bean
-    fun reachableUriUseCase() = ReachableURIUseCaseImpl()
+    fun reachableMap(): HashMap<String, Pair<Boolean, OffsetDateTime>> = HashMap()
+
+    @Bean
+    fun reachableUriUseCase() = ReachableURIUseCaseImpl(reachableMap())
 
     @Bean
     fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue()
+
+
 }

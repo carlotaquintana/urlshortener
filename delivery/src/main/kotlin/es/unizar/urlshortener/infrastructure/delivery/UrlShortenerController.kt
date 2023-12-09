@@ -76,29 +76,38 @@ class UrlShortenerControllerImpl(
 
     @GetMapping("/{id:(?!api|index).*}")
     override fun redirectTo(@PathVariable id: String, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
-        redirectUseCase.redirectTo(id).let {
+        try{
+            val redirectionResult = redirectUseCase.redirectTo(id)
             // Mirar si es alcanzable
-            if(reachableURIUseCase.reachable(it.target)){
-                // Se hace lo que se hacía en el GET antes
+            if(reachableURIUseCase.reachable(redirectionResult.target)){
+                // Se ha comprobado que es alcanzable, se redirige y se loguea
+                println("La uri ${redirectionResult.target} es alcanzable, redirigiendo...")
                 logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
                 val h = HttpHeaders()
-                h.location = URI.create(it.target)
-                return ResponseEntity( h, HttpStatus.valueOf(it.mode))
+                h.location = URI.create(redirectionResult.target)
+                return ResponseEntity(h, HttpStatus.valueOf(redirectionResult.mode))
             }
             else{
-                // Si no es alcanzable se devuelve un error 403
-                val errorResponse = mapOf("error" to "URI de destino no validada todavía")
+                // El id está registrado pero aún no se ha confirmado que sea alcanzable. Se
+                // devuelve una respuesta con estado 400 Bad Request y una cabecera
+                // Retry-After indicando cuanto tiempo se debe esperar antes de volver a intentarlo
+                println("La uri ${redirectionResult.target} no es alcanzable, devolviendo error 400")
                 val h = HttpHeaders()
-                return ResponseEntity(errorResponse, h, HttpStatus.FORBIDDEN)
+                h.set("Retry-After", "10")
+                return ResponseEntity(h, HttpStatus.BAD_REQUEST)
             }
+        }
+        catch(e: RedirectionNotFound){
+            // Si el id no está registrado se devuelve un error 404
+            println("El id $id no está registrado, devolviendo error 404")
+            val errorResponse = mapOf("error" to "Redirection not found")
+            val h = HttpHeaders()
+            return ResponseEntity(h, HttpStatus.NOT_FOUND)
         }
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
     override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> {
-        // Se añade la URI a la cola para verificación asíncrona
-        reachableQueue.put(data.url)
-
         // Si la URI es alcanzable, se crea la URL corta
         createShortUrlUseCase.create(
             url = data.url,
@@ -110,12 +119,17 @@ class UrlShortenerControllerImpl(
             val h = HttpHeaders()
             val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url
+
+            // Se añade la URI a la cola para verificación asíncrona
+            reachableQueue.put(data.url)
+
             val response = ShortUrlDataOut(
                 url = url,
                 properties = mapOf(
                     "safe" to it.properties.safe
                 )
             )
+            // Se devuelve la respuesta con estado 201 Created
             return ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
     }
