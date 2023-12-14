@@ -68,8 +68,6 @@ class RedirectCounterService (
                     // Actualiza el contador usando el registro de métricas
                     meterRegistry.gauge("app.metric.redirect_counter", clickRepositoryService) { it.counter().toDouble() }
 
-                } else {
-                    reachableQueueMetric.put(uri)
                 }
             }
         }
@@ -91,7 +89,6 @@ class RedirectCounterService (
 class UriCounterService (
     private val meterRegistry: MeterRegistry,
     private val shortUrlRepositoryService: ShortUrlRepositoryService,
-    private val restTemplate: RestTemplate,
     @Qualifier("uriQueueMetric") private val uriQueueMetric: BlockingQueue<String>
 ) {
 
@@ -104,8 +101,6 @@ class UriCounterService (
                     // Actualiza el contador usando el registro de métricas
                     meterRegistry.gauge("app.metric.uri_counter", shortUrlRepositoryService) { it.counter().toDouble() }
 
-                } else {
-                    uriQueueMetric.put(uri)
                 }
             }
         }
