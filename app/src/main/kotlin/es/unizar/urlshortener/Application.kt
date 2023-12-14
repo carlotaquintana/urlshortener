@@ -1,6 +1,7 @@
 package es.unizar.urlshortener
 
 import jakarta.annotation.PostConstruct
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
@@ -29,6 +30,9 @@ fun main(args: Array<String>) {
 
 @Component
 class MetricCapture(private val restTemplate: RestTemplate) {
+
+    @Value("\${metric.endpoint}")
+    private lateinit var metricEndpoint: String
 
     @Suppress("MagicNumber")
     private val tamBloqueante = 10 // Cola bloqueante de tamaño 10
@@ -59,7 +63,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
     private fun createMetricCalculationCommand(metricName: String): Callable<Unit> {
         return Callable {
             // Construir la URL para la métrica específica
-            val endpoint = "http://localhost:8080/api/stats/metrics/$metricName"
+            val endpoint = "$metricEndpoint$metricName"
 
             // Realizar la solicitud HTTP para obtener la métrica
             val response = restTemplate.getForObject(endpoint, Map::class.java)
@@ -68,7 +72,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
             val measurements = castToMapList(response?.get("measurements"))
             val metricValue = measurements?.firstOrNull()?.get("value")
 
-            println("Metric $metricName: $metricValue")
+            println("Metric $metricName: $metricValue") // log for Java
         }
     }
 

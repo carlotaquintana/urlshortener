@@ -15,3 +15,10 @@ management:
       exposure:
         include: metrics
       base-path: /api/stats
+
+server:
+  port: 8080
+
+# Metric Endpoint Configuration
+metric:
+  endpoint: http://localhost:${server.port}/api/stats/metrics/

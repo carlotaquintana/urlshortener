@@ -74,8 +74,6 @@ class UrlShortenerControllerImpl(
 
     val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
     val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
-    //val uriGauge: Gauge = Gauge.builder("app.metric.uri_gauge", uriCounter) { it.count()}
-      //      .register(meterRegistry)
 
     /* Atrapa todo lo que no empieza por lo especificado */
     @GetMapping("/{id:(?!api|index).*}")
