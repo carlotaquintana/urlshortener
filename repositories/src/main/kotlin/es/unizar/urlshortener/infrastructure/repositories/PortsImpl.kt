@@ -12,6 +12,11 @@ class ClickRepositoryServiceImpl(
     private val clickEntityRepository: ClickEntityRepository
 ) : ClickRepositoryService {
     override fun save(cl: Click): Click = clickEntityRepository.save(cl.toEntity()).toDomain()
+    override fun counter(): Long {
+        val count = clickEntityRepository.count()
+        println("ClickRepositoryServiceImpl.count(): $count")
+        return clickEntityRepository.count()
+    }
 }
 
 /**
@@ -23,5 +28,10 @@ class ShortUrlRepositoryServiceImpl(
     override fun findByKey(id: String): ShortUrl? = shortUrlEntityRepository.findByHash(id)?.toDomain()
 
     override fun save(su: ShortUrl): ShortUrl = shortUrlEntityRepository.save(su.toEntity()).toDomain()
-}
 
+    override fun counter(): Long {
+        val count = shortUrlEntityRepository.count()
+        println("shortUrlEntityRepository.count(): $count")
+        return shortUrlEntityRepository.count()
+    }
+}

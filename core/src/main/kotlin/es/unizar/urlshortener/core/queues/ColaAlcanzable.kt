@@ -3,6 +3,7 @@ package es.unizar.urlshortener.core.queues
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
@@ -13,9 +14,8 @@ import java.util.concurrent.BlockingQueue
  * Cola para almacenar las URIs que se van a comprobar si son alcanzables o no.
  */
 @Component
-@Suppress("NewLineAtEndOfFile")
 open class ColaAlcanzable(
-    private val colaAlcanzable: BlockingQueue<String>,
+    @Qualifier("reachableQueue") private val colaAlcanzable: BlockingQueue<String>,
     private val reachableURIUseCase: ReachableURIUseCase
 )
 {
@@ -29,7 +29,10 @@ open class ColaAlcanzable(
     @Scheduled(fixedDelay = 500L)
     open
     fun executor() {
-        if (!colaAlcanzable.isEmpty()) {
+        if (!colaAlcanzable.isEmpty()) { // problema aqui: la cola se puede desbordar habria algun critero para que no se desborde?
+            // le puedes añadir limite, que tena un limite de datos, si la cola esta llena que rechace la redireccion
+            // 100 o 200, si se tira se dice que no se recorta
+            // con esto memory lick
             // Se saca el primer elemento de la cola y se comprueba si es alcanzable
             val uri = colaAlcanzable.take()
             logger.info("Comprobando si la URI $uri es alcanzable")

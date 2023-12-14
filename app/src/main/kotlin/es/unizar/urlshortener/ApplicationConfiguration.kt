@@ -11,6 +11,7 @@ import es.unizar.urlshortener.infrastructure.repositories.ClickRepositoryService
 import es.unizar.urlshortener.infrastructure.repositories.ShortUrlEntityRepository
 import es.unizar.urlshortener.infrastructure.repositories.ShortUrlRepositoryServiceImpl
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.OffsetDateTime
@@ -56,7 +57,16 @@ class ApplicationConfiguration(
     fun reachableUriUseCase() = ReachableURIUseCaseImpl(reachableMap())
 
     @Bean
-    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue()
+    @Qualifier("reachableQueue")
+    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue() // esto es infinito, no tiene restriccion
+
+    @Bean
+    @Qualifier("reachableQueueMetric")
+    fun reachableQueueMetric() : BlockingQueue<String> = LinkedBlockingQueue(100)
+
+    @Bean
+    @Qualifier("uriQueueMetric")
+    fun uriQueueMetric() : BlockingQueue<String> = LinkedBlockingQueue(100)
 
 
 }

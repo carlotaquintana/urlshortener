@@ -19,6 +19,7 @@ tasks.named<Test>("test") {
 
 tasks.named<Detekt>("detekt") {
     exclude("**/generated-sources/**")
+    autoCorrect = true
 }
 
 tasks.named("check") {
