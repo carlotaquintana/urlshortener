@@ -10,7 +10,12 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("commons-validator:commons-validator:${Version.COMMONS_VALIDATOR}")
     implementation("com.google.guava:guava:${Version.GUAVA}")
+<<<<<<< HEAD
     implementation("io.micrometer:micrometer-core")
+=======
+    implementation ("org.springframework.boot:spring-boot-starter-web")
+    implementation ("org.springframework.boot:spring-boot-starter-data-jpa")
+>>>>>>> dev-alcanzable
 
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

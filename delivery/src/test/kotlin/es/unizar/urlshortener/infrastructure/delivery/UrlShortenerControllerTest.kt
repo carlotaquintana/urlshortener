@@ -6,9 +6,11 @@ import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
+import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.never
+import org.mockito.Mockito.`when`
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -42,13 +44,22 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var createShortUrlUseCase: CreateShortUrlUseCase
 
+    @MockBean
+    private lateinit var reachableURIUseCase: ReachableURIUseCase
+
+    // Se ha modificado para hacer que la URI sea alcanzable (sino devolvía un 403 en
+    // vez de un 307).
     @Test
     fun `redirectTo returns a redirect when the key exists`() {
-        given(redirectUseCase.redirectTo("key")).willReturn(Redirection("http://example.com/"))
+        val reachableUrl = "http://example.com/"
+        given(redirectUseCase.redirectTo("key")).willReturn(Redirection(reachableUrl))
+        given(reachableURIUseCase.reachable(reachableUrl)).willReturn(true)
 
         mockMvc.perform(get("/{id}", "key"))
+
+            // Se espera que la respuesta sea 307 Temporary Redirect
             .andExpect(status().isTemporaryRedirect)
-            .andExpect(redirectedUrl("http://example.com/"))
+            .andExpect(redirectedUrl(reachableUrl))
 
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
@@ -74,6 +85,7 @@ class UrlShortenerControllerTest {
                 data = ShortUrlProperties(ip = "127.0.0.1")
             )
         ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
+        given(reachableURIUseCase.reachable("http://example.com/")).willReturn(true)
 
         mockMvc.perform(
             post("/api/link")
@@ -95,6 +107,8 @@ class UrlShortenerControllerTest {
             )
         ).willAnswer { throw InvalidUrlException("ftp://example.com/") }
 
+        given(reachableURIUseCase.reachable("ftp://example.com/")).willReturn(true)
+
         mockMvc.perform(
             post("/api/link")
                 .param("url", "ftp://example.com/")
@@ -103,4 +117,37 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.statusCode").value(400))
     }
+
+    @Test
+    fun `create returns 400 bad request if URI is not reachable`() {
+        // Dada una URI no alcanzable
+        val unreachableUrl = "http://unreachable-url.com/"
+        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
+
+        // Se hace un POST
+        mockMvc.perform(
+            post("/api/link")
+                .param("url", unreachableUrl)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
+
+            // Se espera un error 400 Bad Request
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `returns HTTP 403 when URI is not reachable during redirection`() {
+        // Dado un id registrado y una URI de destino no alcanzable
+        val id = "existing-key"
+        val unreachableUrl = "http://unreachable-url.com/"
+        given(redirectUseCase.redirectTo(id)).willReturn(Redirection(unreachableUrl))
+        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
+
+        // Se hace un GET
+        mockMvc.perform(get("/{id}", id))
+
+            // Se espera un error 403
+            .andExpect(status().isForbidden)
+    }
+
 }
