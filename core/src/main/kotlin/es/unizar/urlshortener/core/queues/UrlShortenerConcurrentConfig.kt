@@ -20,5 +20,4 @@ open class UrlShortenerConcurrentConfig {
         executor.initialize()
         return executor
     }
-
 }

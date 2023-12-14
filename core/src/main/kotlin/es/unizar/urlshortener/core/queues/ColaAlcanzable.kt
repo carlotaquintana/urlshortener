@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue
  * Cola para almacenar las URIs que se van a comprobar si son alcanzables o no.
  */
 @Component
+@Suppress("NewLineAtEndOfFile")
 open class ColaAlcanzable(
     private val colaAlcanzable: BlockingQueue<String>,
     private val reachableURIUseCase: ReachableURIUseCase

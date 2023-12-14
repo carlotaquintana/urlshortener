@@ -23,7 +23,6 @@ private const val CLIENT_TIMEOUT: Long = 10L
 * *[reachable]* checks if a URI is reachable or not.
 *
 */
-
 interface ReachableURIUseCase {
     /**
      * Comprueba si una URI es alcanzable o no.
@@ -42,6 +41,7 @@ interface ReachableURIUseCase {
 /**
  * Implementation of [ReachableURIUseCase].
  */
+@Suppress("SwallowedException", "NewLineAtEndOfFile", "MagicNumber")
 class ReachableURIUseCaseImpl (
     private val uriMap : HashMap<String, Pair<Boolean, OffsetDateTime>>
 ): ReachableURIUseCase {
@@ -59,13 +59,13 @@ class ReachableURIUseCaseImpl (
      * Verifica si una URI es alcanzable o no.
      * @param uri URI a comprobar
      */
-    override fun verifyReachability(uri:String){
+    override fun verifyReachability(uri:String) {
         // Se coge la URI y se comprueba si es alcanzable haciendo una petición GET a la misma
         // y si devuelve 200, se considera como alcanzable.
         // Crea un cliente con un timeout de 10s
         val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CLIENT_TIMEOUT)).build()
 
-        for(i in 1..MAX_ATTEMPTS) {
+        for (i in 1..MAX_ATTEMPTS) {
             println("Intento $i de $MAX_ATTEMPTS")
             // Crea la petición
             val request = HttpRequest.newBuilder()
@@ -101,6 +101,4 @@ class ReachableURIUseCaseImpl (
 
         }
     }
-
-
 }

@@ -55,6 +55,7 @@ data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any
  * **Note**: Spring Boot is able to discover this [RestController] without further configuration.
  */
 @RestController
+@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty")
 class UrlShortenerControllerImpl(
         val redirectUseCase: RedirectUseCase,
         val logClickUseCase: LogClickUseCase,
