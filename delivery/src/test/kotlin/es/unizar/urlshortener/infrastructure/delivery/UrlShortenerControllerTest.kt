@@ -5,6 +5,7 @@ package es.unizar.urlshortener.infrastructure.delivery
 import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
+import es.unizar.urlshortener.core.usecases.QrUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
@@ -42,6 +43,9 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var createShortUrlUseCase: CreateShortUrlUseCase
 
+    @MockBean
+    private lateinit var qrUseCase: QrUseCase
+
     @Test
     fun `redirectTo returns a redirect when the key exists`() {
         given(redirectUseCase.redirectTo("key")).willReturn(Redirection("http://example.com/"))
@@ -66,6 +70,7 @@ class UrlShortenerControllerTest {
         verify(logClickUseCase, never()).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
 
+    // Se ha añadido el parametro qr False
     @Test
     fun `creates returns a basic redirect if it can compute a hash`() {
         given(
@@ -78,12 +83,46 @@ class UrlShortenerControllerTest {
         mockMvc.perform(
             post("/api/link")
                 .param("url", "http://example.com/")
+                .param("qr", "false")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
         )
             .andDo(print())
             .andExpect(status().isCreated)
             .andExpect(redirectedUrl("http://localhost/f684a3c4"))
             .andExpect(jsonPath("$.url").value("http://localhost/f684a3c4"))
+    }
+
+    //Test para comprobar que se devuelve un QR
+    @Test
+    fun `creates returns a basic redirect if it can compute a hash with qr`() {
+        given(
+                createShortUrlUseCase.create(
+                        url = "http://example.com/",
+                        data = ShortUrlProperties(ip = "127.0.0.1", qr = true)
+                )
+        ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
+
+        mockMvc.perform(
+                post("/api/link")
+                        .param("url", "http://example.com/")
+                        .param("qr", "true")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
+                .andDo(print())
+                .andExpect(status().isCreated)
+                .andExpect(redirectedUrl("http://localhost/f684a3c4"))
+                .andExpect(
+                    content().json(
+                        """
+                        {
+                          "url": "http://localhost/f684a3c4",
+                          "properties": {
+                            "qr": "http://localhost/f684a3c4/qr"
+                          }
+                        }
+                        """.trimIndent()
+                    )
+                )
     }
 
     @Test
@@ -103,4 +142,43 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.statusCode").value(400))
     }
+
+    /****************************************************************************************
+     * Test para la comprobarción de QR
+     ****************************************************************************************/
+    @Test
+    fun `generateQr returns a QR when the key exists`() {
+        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+            .andExpect(status().isOk)
+            .andExpect(content().contentType(MediaType.IMAGE_PNG))
+            .andExpect(content().bytes(byteArrayOf(0, 1, 2, 3)))
+    }
+
+    @Test
+    fun `generateQr returns a not found when the key does not exist`() {
+        given(qrUseCase.getQR("key"))
+            .willAnswer { throw RedirectionNotFound("key") }
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+            .andDo(print())
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.statusCode").value(404))
+    }
+
+    @Test
+    fun `generateQr returns forbidden when the key exists but the qr is invalid`() {
+        given(qrUseCase.getQR("key"))
+                .willAnswer { throw InfoNotAvailable("key", "QR") }
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+                .andDo(print())
+                .andExpect(status().isForbidden)
+    }
+
+
+
+
+    /****************************************************************************************/
 }

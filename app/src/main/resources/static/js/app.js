@@ -24,9 +24,14 @@ function getURL(url, qr){
             return response.json()
         })
         .then(response => {
-            if (qr /*=== true*/) {
-                getQR(response.url, response.properties.hash);
-            }
+            if (response.properties.qr /*=== true*/) {
+                //getQR(response.url, response.properties.hash);
+                document.getElementById('result').innerHTML =
+                    `<div class='alert alert-success lead'>
+                    <a target='_blank' href="${response.url}">${response.url}</a>
+                    <a target='_blank' href="${response.properties.qr}">${response.properties.qr}</a>
+                    </div>`;
+}
             else {
                 document.getElementById('result').innerHTML =
                     `<div class='alert alert-success lead'>
@@ -40,6 +45,7 @@ function getURL(url, qr){
         );
 }
 
+/*
 function getQR(url, hash){
     var widthProp = "-webkit-fill-available"
 
@@ -62,9 +68,9 @@ function getQR(url, hash){
                 document.getElementById('result').innerHTML =
                     `<div class='alert alert-danger lead'>ERROR</div>`
             );
-}
+}*/
 
-document.getElementById('shortener').addEventListener('submit', getData);
+//document.getElementById('shortener').addEventListener('submit', getData);
 
 /*$(document).ready(
     function () {

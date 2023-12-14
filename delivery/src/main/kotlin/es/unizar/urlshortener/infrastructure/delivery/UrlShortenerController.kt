@@ -49,7 +49,8 @@ interface UrlShortenerController {
  */
 data class ShortUrlDataIn(
     val url: String,
-    val sponsor: String? = null
+    val sponsor: String? = null,
+    val qr: Boolean
 )
 
 /**
@@ -88,7 +89,8 @@ class UrlShortenerControllerImpl(
                     url = data.url,
                     data = ShortUrlProperties(
                             ip = request.remoteAddr,
-                            sponsor = data.sponsor
+                            sponsor = data.sponsor,
+                            qr = data.qr
                     )
             ).let {
                 val h = HttpHeaders()
@@ -96,12 +98,22 @@ class UrlShortenerControllerImpl(
                 h.location = url
                 val response = ShortUrlDataOut(
                         url = url,
-                        properties = mapOf(
+                        /*properties = mapOf(
                                 "safe" to it.properties.safe,
                                 //Se pasa dentro de properties porque shortUrlDataOut esta
                                 // definido solo con url y properties
                                 "hash" to it.hash
-                        )
+
+                                //cuando hay qr tiene que devolver una url donde esta el qr
+                        )*/
+                        // Si data.qr es true, se añade la propiedad qr a la respuesta
+                        // Si data.qr es false, crea un mapa vacio
+                        properties = when (data.qr) {
+                            true -> mapOf(
+                                    "qr" to linkTo<UrlShortenerControllerImpl> { generateQr(it.hash, request) }.toUri()
+                            )
+                            false -> mapOf()
+                        }
                 )
                 ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
             }
@@ -111,10 +123,10 @@ class UrlShortenerControllerImpl(
             @PathVariable id: String,
             request: HttpServletRequest
     ): ResponseEntity<ByteArrayResource> =
-            qrUseCase.generateQR(id, linkTo<UrlShortenerControllerImpl> { redirectTo(id, request) }.toString()
-            ).let {
-                ResponseEntity.ok()
-                        .contentType(MediaType.IMAGE_PNG)
-                        .body(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE))
+
+            qrUseCase.getQR(id).let {
+                val headers = HttpHeaders()
+                headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
+                ResponseEntity<ByteArrayResource>(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
             }
 }
