@@ -11,7 +11,8 @@ dependencies {
     implementation("commons-validator:commons-validator:${Version.COMMONS_VALIDATOR}")
     implementation("com.google.guava:guava:${Version.GUAVA}")
     implementation("io.micrometer:micrometer-core")
-
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito.kotlin:mockito-kotlin:${Version.MOCKITO}")

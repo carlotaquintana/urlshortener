@@ -2,6 +2,7 @@ package es.unizar.urlshortener
 
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCaseImpl
 import es.unizar.urlshortener.core.usecases.LogClickUseCaseImpl
+import es.unizar.urlshortener.core.usecases.ReachableURIUseCaseImpl
 import es.unizar.urlshortener.core.usecases.RedirectUseCaseImpl
 import es.unizar.urlshortener.infrastructure.delivery.HashServiceImpl
 import es.unizar.urlshortener.infrastructure.delivery.ValidatorServiceImpl
@@ -12,6 +13,9 @@ import es.unizar.urlshortener.infrastructure.repositories.ShortUrlRepositoryServ
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.time.OffsetDateTime
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * Wires use cases with service implementations, and services implementations with repositories.
@@ -44,4 +48,15 @@ class ApplicationConfiguration(
     @Bean
     fun createShortUrlUseCase() =
         CreateShortUrlUseCaseImpl(shortUrlRepositoryService(), validatorService(), hashService())
+
+    @Bean
+    fun reachableMap(): HashMap<String, Pair<Boolean, OffsetDateTime>> = HashMap()
+
+    @Bean
+    fun reachableUriUseCase() = ReachableURIUseCaseImpl(reachableMap())
+
+    @Bean
+    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue()
+
+
 }
