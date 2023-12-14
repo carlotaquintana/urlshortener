@@ -77,6 +77,7 @@ class UrlShortenerControllerImpl(
             val redirectionResult = redirectUseCase.redirectTo(id)
             // Mirar si es alcanzable
             if (reachableURIUseCase.reachable(redirectionResult.target)) {
+                redirectCounter.increment()
                 // Se ha comprobado que es alcanzable, se redirige y se loguea
                 println("La uri ${redirectionResult.target} es alcanzable, redirigiendo...")
                 logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))

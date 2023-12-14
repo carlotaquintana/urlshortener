@@ -1,6 +1,8 @@
 package es.unizar.urlshortener
 
 import jakarta.annotation.PostConstruct
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -30,6 +32,8 @@ fun main(args: Array<String>) {
 
 @Component
 class MetricCapture(private val restTemplate: RestTemplate) {
+
+    private val logger: Logger = LogManager.getLogger(MetricCapture::class.java)
 
     @Value("\${metric.endpoint}")
     private lateinit var metricEndpoint: String
@@ -72,7 +76,7 @@ class MetricCapture(private val restTemplate: RestTemplate) {
             val measurements = castToMapList(response?.get("measurements"))
             val metricValue = measurements?.firstOrNull()?.get("value")
 
-            println("Metric $metricName: $metricValue") // log for Java
+            logger.info("Metric $metricName: $metricValue")
         }
     }
 
