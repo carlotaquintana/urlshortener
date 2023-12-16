@@ -10,12 +10,12 @@ import java.io.ByteArrayOutputStream
 interface QrUseCase {
     //fun generateQR(id: String, url: String)
 
-    fun getQR(id: String): ByteArray
+    fun getQR(id: String, url: String): ByteArray
 }
 
 class QrUseCaseImpl(
         private val shortUrlRepository: ShortUrlRepositoryService,
-        private val qrMap: HashMap<String, ByteArray>,
+        private val qrMap: HashMap<String, ByteArray>
         //private val qrService: QrService
 ) : QrUseCase {
 
@@ -27,7 +27,7 @@ class QrUseCaseImpl(
         } ?: throw RedirectionNotFound(id)
     }*/
 
-    override fun getQR(id: String): ByteArray =
+    override fun getQR(id: String, url: String): ByteArray =
         shortUrlRepository.findByKey(id)?.let {
             /*val image = ByteArrayOutputStream()
 
@@ -40,7 +40,15 @@ class QrUseCaseImpl(
                 return image.toByteArray()*/
                 println("Dentro del if")
                 println(id)
-                qrMap[id]
+                //qrMap[id]
+                // codigo similar a este
+                qrMap.getOrPut(id) {
+                    println("Dentro del getOrPut")
+                    println(id)
+                    val image = ByteArrayOutputStream()
+                    QRCode(url).render().writeImage(image)
+                    image.toByteArray()
+                }
             } else {
                 throw InfoNotAvailable(id, "QR")
             }

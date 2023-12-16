@@ -31,7 +31,7 @@ function getURL(url, qr){
                     <a target='_blank' href="${response.url}">${response.url}</a>
                     <a target='_blank' href="${response.properties.qr}">${response.properties.qr}</a>
                     </div>`;
-}
+            }
             else {
                 document.getElementById('result').innerHTML =
                     `<div class='alert alert-success lead'>
@@ -70,7 +70,7 @@ function getQR(url, hash){
             );
 }*/
 
-//document.getElementById('shortener').addEventListener('submit', getData);
+document.getElementById('shortener').addEventListener('submit', getData);
 
 /*$(document).ready(
     function () {

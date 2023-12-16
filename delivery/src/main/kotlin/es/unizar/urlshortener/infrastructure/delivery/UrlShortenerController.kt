@@ -41,7 +41,7 @@ interface UrlShortenerController {
     /**
      * Generates a QR code for a short url identified by its [id].
      */
-    fun generateQr(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
+    fun generateQR(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
 }
 
 /**
@@ -110,7 +110,7 @@ class UrlShortenerControllerImpl(
                         // Si data.qr es false, crea un mapa vacio
                         properties = when (data.qr) {
                             true -> mapOf(
-                                    "qr" to linkTo<UrlShortenerControllerImpl> { generateQr(it.hash, request) }.toUri()
+                                    "qr" to linkTo<UrlShortenerControllerImpl> { generateQR(it.hash, request) }.toUri()
                             )
                             false -> mapOf()
                         }
@@ -119,12 +119,13 @@ class UrlShortenerControllerImpl(
             }
 
     @GetMapping("/{id:(?!api|index).*}/qr")
-    override fun generateQr(
+    override fun generateQR(
             @PathVariable id: String,
             request: HttpServletRequest
     ): ResponseEntity<ByteArrayResource> =
 
-            qrUseCase.getQR(id).let {
+            qrUseCase.getQR(id, linkTo<UrlShortenerControllerImpl> { redirectTo(id, request) }.toString()).let {
+                println("QR: " + it)
                 val headers = HttpHeaders()
                 headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
                 ResponseEntity<ByteArrayResource>(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
