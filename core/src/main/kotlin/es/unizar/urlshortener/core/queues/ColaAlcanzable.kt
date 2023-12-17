@@ -25,7 +25,7 @@ open class ColaAlcanzable(
      * y comprobar si son alcanzables o no. Como tiene la anotación @Async, se ejecuta
      * en un hilo aparte y no bloquea la ejecución del programa.
      */
-    @Async("verificarAlcanzabilidad")
+    @Async("configuracionConcurrente")
     @Scheduled(fixedDelay = 500L)
     open
     fun executor() {
