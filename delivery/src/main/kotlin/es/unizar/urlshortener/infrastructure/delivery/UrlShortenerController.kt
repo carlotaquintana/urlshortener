@@ -1,14 +1,21 @@
 package es.unizar.urlshortener.infrastructure.delivery
 
-import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
+import es.unizar.urlshortener.core.RedirectionNotFound
+import es.unizar.urlshortener.core.ShortUrlProperties
+import es.unizar.urlshortener.core.ClickProperties
+import es.unizar.urlshortener.core.ClickRepositoryService
+import es.unizar.urlshortener.core.ShortUrlRepositoryService
+
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.springframework.beans.factory.annotation.Qualifier
 import java.net.URI
 import java.util.concurrent.BlockingQueue
@@ -23,6 +30,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.client.RestTemplate
+
 
 /** The specification of the controller. */
 interface UrlShortenerController {
@@ -52,6 +60,7 @@ data class ShortUrlDataIn(val url: String, val sponsor: String? = null)
 data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any> = emptyMap())
 
 @Service
+@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class RedirectCounterService (
     private val meterRegistry: MeterRegistry,
     private val clickRepositoryService: ClickRepositoryService,
@@ -66,7 +75,9 @@ class RedirectCounterService (
 
                 if (uri == "app.metric.redirect_counter") {
                     // Actualiza el contador usando el registro de métricas
-                    meterRegistry.gauge("app.metric.redirect_counter", clickRepositoryService) { it.counter().toDouble() }
+                    meterRegistry.gauge("app.metric.redirect_counter", clickRepositoryService) {
+                        it.counter().toDouble()
+                    }
 
                 }
             }
@@ -86,6 +97,7 @@ class RedirectCounterService (
 }
 
 @Service
+@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class UriCounterService (
     private val meterRegistry: MeterRegistry,
     private val shortUrlRepositoryService: ShortUrlRepositoryService,
@@ -125,7 +137,7 @@ class UriCounterService (
  * **Note**: Spring Boot is able to discover this [RestController] without further configuration.
  */
 @RestController
-@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty")
+@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class UrlShortenerControllerImpl(
         val redirectUseCase: RedirectUseCase,
         val logClickUseCase: LogClickUseCase,
@@ -133,6 +145,8 @@ class UrlShortenerControllerImpl(
         val reachableURIUseCase: ReachableURIUseCase,
         val reachableQueue: BlockingQueue<String>
 ) : UrlShortenerController {
+
+    private val logger: Logger = LogManager.getLogger(UrlShortenerController::class.java)
 
     // val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
     // val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
@@ -148,7 +162,7 @@ class UrlShortenerControllerImpl(
             // Mirar si es alcanzable
             if (reachableURIUseCase.reachable(redirectionResult.target)) {
                 // Se ha comprobado que es alcanzable, se redirige y se loguea
-                println("La uri ${redirectionResult.target} es alcanzable, redirigiendo...")
+                logger.info("La uri ${redirectionResult.target} es alcanzable, redirigiendo...")
                 logClickUseCase.logClick(id, ClickProperties(ip = request.remoteAddr))
                 val h = HttpHeaders()
                 h.location = URI.create(redirectionResult.target)
@@ -157,17 +171,14 @@ class UrlShortenerControllerImpl(
                 // El id está registrado pero aún no se ha confirmado que sea alcanzable. Se
                 // devuelve una respuesta con estado 400 Bad Request y una cabecera
                 // Retry-After indicando cuanto tiempo se debe esperar antes de volver a intentarlo
-                println(
-                        "La uri ${redirectionResult.target} no es alcanzable, devolviendo error 400"
-                )
+                logger.info("La uri ${redirectionResult.target} no es alcanzable, devolviendo error 400")
                 val h = HttpHeaders()
                 h.set("Retry-After", "10")
                 return ResponseEntity(h, HttpStatus.BAD_REQUEST)
             }
         } catch (e: RedirectionNotFound) {
             // Si el id no está registrado se devuelve un error 404
-            println("El id $id no está registrado, devolviendo error 404")
-            val errorResponse = mapOf("error" to "Redirection not found")
+            logger.info("La uri $id no está registrada, devolviendo error 404")
             val h = HttpHeaders()
             return ResponseEntity(h, HttpStatus.NOT_FOUND)
         }

@@ -29,10 +29,11 @@ open class ColaAlcanzable(
     @Scheduled(fixedDelay = 500L)
     open
     fun executor() {
-        if (!colaAlcanzable.isEmpty()) { // problema aqui: la cola se puede desbordar habria algun critero para que no se desborde?
+        if (!colaAlcanzable.isEmpty()) {
+            // problema aqui: la cola se puede desbordar habria algun critero para que no se desborde?
             // le puedes añadir limite, que tena un limite de datos, si la cola esta llena que rechace la redireccion
             // 100 o 200, si se tira se dice que no se recorta
-            // con esto memory lick
+            // con esto memory leak
             // Se saca el primer elemento de la cola y se comprueba si es alcanzable
             val uri = colaAlcanzable.take()
             logger.info("Comprobando si la URI $uri es alcanzable")

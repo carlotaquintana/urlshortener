@@ -32,6 +32,7 @@ fun main(args: Array<String>) {
 }
 
 @Component
+@Suppress("UnusedPrivateProperty")
 class MetricCapture(
     private val restTemplate: RestTemplate,
     private val redirectCounterService: RedirectCounterService,

@@ -24,6 +24,7 @@ import java.util.concurrent.LinkedBlockingQueue
  * **Note**: Spring Boot is able to discover this [Configuration] without further configuration.
  */
 @Configuration
+@Suppress("TooManyFunctions", "MagicNumber")
 class ApplicationConfiguration(
     @Autowired val shortUrlEntityRepository: ShortUrlEntityRepository,
     @Autowired val clickEntityRepository: ClickEntityRepository
@@ -67,6 +68,5 @@ class ApplicationConfiguration(
     @Bean
     @Qualifier("uriQueueMetric")
     fun uriQueueMetric() : BlockingQueue<String> = LinkedBlockingQueue(100)
-
 
 }

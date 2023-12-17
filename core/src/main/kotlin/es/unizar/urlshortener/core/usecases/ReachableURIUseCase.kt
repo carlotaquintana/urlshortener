@@ -1,10 +1,13 @@
 package es.unizar.urlshortener.core.usecases
 
+import es.unizar.urlshortener.core.queues.ColaAlcanzable
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import java.time.OffsetDateTime
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.CompletableFuture
@@ -45,6 +48,8 @@ interface ReachableURIUseCase {
 class ReachableURIUseCaseImpl (
     private val uriMap : HashMap<String, Pair<Boolean, OffsetDateTime>>
 ): ReachableURIUseCase {
+
+    private val logger: Logger = LogManager.getLogger(ReachableURIUseCase::class.java)
     /**
      * Comprueba si una URI es alcanzable o no.
      * @param uri URI a comprobar
@@ -84,13 +89,16 @@ class ReachableURIUseCaseImpl (
                 // Si la respuesta es 200, se considera como alcanzable
                 if (response.statusCode() == 200) {
                     uriMap[uri] = Pair(true, OffsetDateTime.now())
+                    logger.info("La URI $uri es alcanzable")
                     break
                 } else {
                     uriMap[uri] = Pair(false, OffsetDateTime.now())
+                    logger.info("La URI $uri no es alcanzable")
                 }
             } catch (e: ExecutionException) {
                 // La petición lanzó una excepción, se considera como no alcanzable
                 uriMap[uri] = Pair(false, OffsetDateTime.now())
+
             } catch (e: java.util.concurrent.TimeoutException) {
                 // La petición excedió el tiempo de espera, se considera como no alcanzable
                 uriMap[uri] = Pair(false, OffsetDateTime.now())
