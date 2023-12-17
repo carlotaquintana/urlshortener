@@ -147,8 +147,9 @@ class UrlShortenerControllerTest {
      * Test para la comprobarción de QR
      ****************************************************************************************/
     @Test
-    fun `generateQr returns a QR when the key exists`() {
-        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
+    fun `generateQR returns a QR when the key exists`() {
+        val url = "http://example.com/"
+        given(qrUseCase.getQR("key", url)).willReturn(byteArrayOf(0, 1, 2, 3))
 
         mockMvc.perform(get("/{id}/qr", "key"))
             .andExpect(status().isOk)
@@ -157,8 +158,9 @@ class UrlShortenerControllerTest {
     }
 
     @Test
-    fun `generateQr returns a not found when the key does not exist`() {
-        given(qrUseCase.getQR("key"))
+    fun `generateQR returns a not found when the key does not exist`() {
+        val url = "http://example.com/"
+        given(qrUseCase.getQR("key", url))
             .willAnswer { throw RedirectionNotFound("key") }
 
         mockMvc.perform(get("/{id}/qr", "key"))
@@ -168,8 +170,9 @@ class UrlShortenerControllerTest {
     }
 
     @Test
-    fun `generateQr returns forbidden when the key exists but the qr is invalid`() {
-        given(qrUseCase.getQR("key"))
+    fun `generateQR returns forbidden when the key exists but the qr is invalid`() {
+        val url = "http://example.com/"
+        given(qrUseCase.getQR("key", url))
                 .willAnswer { throw InfoNotAvailable("key", "QR") }
 
         mockMvc.perform(get("/{id}/qr", "key"))

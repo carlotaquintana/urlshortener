@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
+import java.util.concurrent.BlockingQueue
 
 /**
  * The specification of the controller.
@@ -68,10 +69,11 @@ data class ShortUrlDataOut(
  */
 @RestController
 class UrlShortenerControllerImpl(
-    val redirectUseCase: RedirectUseCase,
-    val logClickUseCase: LogClickUseCase,
-    val createShortUrlUseCase: CreateShortUrlUseCase,
-    val qrUseCase: QrUseCase
+        val redirectUseCase: RedirectUseCase,
+        val logClickUseCase: LogClickUseCase,
+        val createShortUrlUseCase: CreateShortUrlUseCase,
+        val qrUseCase: QrUseCase,
+        val qrQueue: BlockingQueue<Pair<String, String>>
 ) : UrlShortenerController {
 
     @GetMapping("/{id:(?!api|index).*}")
@@ -96,16 +98,14 @@ class UrlShortenerControllerImpl(
                 val h = HttpHeaders()
                 val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
                 h.location = url
+
+                // En el caso que el qr sea true, se añaden el id del qr y la url a la cola
+                if (data.qr) {
+                    qrQueue.add(Pair(it.hash, data.url))
+                }
+
                 val response = ShortUrlDataOut(
                         url = url,
-                        /*properties = mapOf(
-                                "safe" to it.properties.safe,
-                                //Se pasa dentro de properties porque shortUrlDataOut esta
-                                // definido solo con url y properties
-                                "hash" to it.hash
-
-                                //cuando hay qr tiene que devolver una url donde esta el qr
-                        )*/
                         // Si data.qr es true, se añade la propiedad qr a la respuesta
                         // Si data.qr es false, crea un mapa vacio
                         properties = when (data.qr) {
