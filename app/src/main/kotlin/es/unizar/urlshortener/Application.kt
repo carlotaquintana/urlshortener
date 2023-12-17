@@ -3,7 +3,8 @@ package es.unizar.urlshortener
 import es.unizar.urlshortener.infrastructure.delivery.RedirectCounterService
 import es.unizar.urlshortener.infrastructure.delivery.UriCounterService
 import jakarta.annotation.PostConstruct
-import org.springframework.beans.factory.annotation.Value
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
@@ -11,10 +12,6 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestTemplate
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.Callable
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 @SpringBootApplication
 @EnableScheduling
@@ -34,20 +31,17 @@ fun main(args: Array<String>) {
 @Component
 @Suppress("UnusedPrivateProperty")
 class MetricCapture(
-    private val restTemplate: RestTemplate,
-    private val redirectCounterService: RedirectCounterService,
-    private val uriCounterService: UriCounterService
+        private val redirectCounterService: RedirectCounterService,
+        private val uriCounterService: UriCounterService
 ) {
-
+    // Hilos para consumir la cola de comandos
     private val executorService1: ExecutorService = Executors.newSingleThreadExecutor()
     private val executorService2: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Scheduled(fixedRate = 5000)
     fun captureMetricsAsync() {
-        val metricNames = listOf(
-            "app.metric.uri_counter",
-            "app.metric.redirect_counter"
-        )
+        // Lista de nombres de métricas
+        val metricNames = listOf("app.metric.uri_counter", "app.metric.redirect_counter")
 
         // Inicia la recolección de métricas para cada nombre en metricNames
         // Agrega un mensaje a la cola para cada nombre en metricNames
@@ -57,13 +51,14 @@ class MetricCapture(
         }
     }
 
-
     // Inicia los consumidores de la cola de comandos después de la inicialización
     @Suppress("unused")
     @PostConstruct
     private fun consumeQueue() {
+        // Limpia la cola de comandos
         redirectCounterService.clearQueue()
         uriCounterService.clearQueue()
+
         // Inicia los consumidores de la cola de comandos
         executorService1.submit { redirectCounterService.compute() }
         executorService2.submit { uriCounterService.compute() }

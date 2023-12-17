@@ -10,8 +10,6 @@ import es.unizar.urlshortener.core.ClickProperties
 import es.unizar.urlshortener.core.ClickRepositoryService
 import es.unizar.urlshortener.core.ShortUrlRepositoryService
 
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
 import org.apache.logging.log4j.LogManager
@@ -29,7 +27,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.client.RestTemplate
 
 
 /** The specification of the controller. */
@@ -59,6 +56,9 @@ data class ShortUrlDataIn(val url: String, val sponsor: String? = null)
 /** Data returned after the creation of a short url. */
 data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any> = emptyMap())
 
+/**
+ * Service responsible for processing messages in the queue to update the redirection counter.
+ */
 @Service
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class RedirectCounterService (
@@ -96,6 +96,9 @@ class RedirectCounterService (
 
 }
 
+/**
+ * Service responsible for processing messages in the queue to update the URI counter.
+ */
 @Service
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class UriCounterService (
@@ -147,9 +150,6 @@ class UrlShortenerControllerImpl(
 ) : UrlShortenerController {
 
     private val logger: Logger = LogManager.getLogger(UrlShortenerController::class.java)
-
-    // val redirectCounter: Counter = meterRegistry.counter("app.metric.redirect_counter")
-    // val uriCounter: Counter = meterRegistry.counter("app.metric.uri_counter")
 
     /* Atrapa todo lo que no empieza por lo especificado */
     @GetMapping("/{id:(?!api|index).*}")
