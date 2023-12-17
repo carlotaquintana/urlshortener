@@ -2,9 +2,11 @@ package es.unizar.urlshortener
 
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCaseImpl
 import es.unizar.urlshortener.core.usecases.LogClickUseCaseImpl
+import es.unizar.urlshortener.core.usecases.QrUseCaseImpl
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCaseImpl
 import es.unizar.urlshortener.core.usecases.RedirectUseCaseImpl
 import es.unizar.urlshortener.infrastructure.delivery.HashServiceImpl
+import es.unizar.urlshortener.infrastructure.delivery.QrServiceImpl
 import es.unizar.urlshortener.infrastructure.delivery.ValidatorServiceImpl
 import es.unizar.urlshortener.infrastructure.repositories.ClickEntityRepository
 import es.unizar.urlshortener.infrastructure.repositories.ClickRepositoryServiceImpl
@@ -14,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
 import java.time.OffsetDateTime
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -50,6 +54,19 @@ class ApplicationConfiguration(
     @Bean
     fun createShortUrlUseCase() =
         CreateShortUrlUseCaseImpl(shortUrlRepositoryService(), validatorService(), hashService())
+
+    @Bean
+    fun qrUseCase() =
+        QrUseCaseImpl(shortUrlRepositoryService(), qrMap(), qrService())
+    @Bean
+    fun qrMap(): HashMap<String, ByteArray> = HashMap()
+
+    @Bean
+    fun qrQueue(): BlockingQueue<Pair<String, String>> = LinkedBlockingQueue()
+
+    @Bean
+    fun qrService() = QrServiceImpl()
+
 
     @Bean
     fun reachableMap(): HashMap<String, Pair<Boolean, OffsetDateTime>> = HashMap()

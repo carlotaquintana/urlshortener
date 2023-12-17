@@ -3,6 +3,7 @@ package es.unizar.urlshortener.infrastructure.delivery
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
+import es.unizar.urlshortener.core.usecases.QrUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
 import es.unizar.urlshortener.core.RedirectionNotFound
 import es.unizar.urlshortener.core.ShortUrlProperties
@@ -17,6 +18,7 @@ import org.apache.logging.log4j.Logger
 import org.springframework.beans.factory.annotation.Qualifier
 import java.net.URI
 import java.util.concurrent.BlockingQueue
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -27,6 +29,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
+import java.net.URI
+import java.util.concurrent.BlockingQueue
 
 
 /** The specification of the controller. */
@@ -48,6 +52,12 @@ interface UrlShortenerController {
             data: ShortUrlDataIn,
             request: HttpServletRequest
     ): ResponseEntity<ShortUrlDataOut>
+    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
+
+    /**
+     * Generates a QR code for a short url identified by its [id].
+     */
+    fun generateQR(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
 }
 
 /** Data required to create a short url. */
@@ -59,6 +69,11 @@ data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any
 /**
  * Service responsible for processing messages in the queue to update the redirection counter.
  */
+data class ShortUrlDataIn(
+    val url: String,
+    val sponsor: String? = null,
+    val qr: Boolean
+)
 @Service
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class RedirectCounterService (
@@ -145,6 +160,11 @@ class UrlShortenerControllerImpl(
         val redirectUseCase: RedirectUseCase,
         val logClickUseCase: LogClickUseCase,
         val createShortUrlUseCase: CreateShortUrlUseCase,
+        val qrUseCase: QrUseCase,
+        val qrQueue: BlockingQueue<Pair<String, String>>
+        val redirectUseCase: RedirectUseCase,
+        val logClickUseCase: LogClickUseCase,
+        val createShortUrlUseCase: CreateShortUrlUseCase,
         val reachableURIUseCase: ReachableURIUseCase,
         val reachableQueue: BlockingQueue<String>
 ) : UrlShortenerController {
@@ -185,42 +205,62 @@ class UrlShortenerControllerImpl(
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
-    override fun shortener(
-            data: ShortUrlDataIn,
-            request: HttpServletRequest
-    ): ResponseEntity<ShortUrlDataOut> {
-        // Si la URI es alcanzable, se crea la URL corta
+    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> =
         createShortUrlUseCase.create(
-                        url = data.url,
-                        data = ShortUrlProperties(ip = request.remoteAddr, sponsor = data.sponsor)
-                )
-                .let {
-                    val h = HttpHeaders()
-                    val url =
-                            linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }
-                                    .toUri()
-                    h.location = url
+            url = data.url,
+            data = ShortUrlProperties(
+                ip = request.remoteAddr,
+                sponsor = data.sponsor,
+                qr = data.qr
+            )
+        ).let {
+            val h = HttpHeaders()
+            val url =
+                linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }
+                    .toUri()
+            h.location = url
 
-                    // Se añade la URI a la cola para verificación asíncrona mirando primero
-                    // si hay capacidad en la cola
-                    try{
-                        if(!reachableQueue.offer(data.url)) {
-                            logger.error("No se ha podido añadir la URI ${data.url} a la cola. Está llena.")
-                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-                        }
-                    }
-                    catch(e: InterruptedException){
-                        logger.error("No se ha podido añadir la URI ${data.url} a la cola. Ha ocurrido un error.")
-                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-                    }
+            // En el caso que el qr sea true, se añaden el id del qr y la url a la cola
+            if (data.qr) {
+                qrQueue.add(Pair(it.hash, data.url))
+            }
 
-                    val response =
-                            ShortUrlDataOut(
-                                    url = url,
-                                    properties = mapOf("safe" to it.properties.safe)
-                            )
-                    // Se devuelve la respuesta con estado 201 Created
-                    return ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
+            // Se añade la URI a la cola para verificación asíncrona mirando primero
+            // si hay capacidad en la cola
+            try{
+                if(!reachableQueue.offer(data.url)) {
+                    logger.error("No se ha podido añadir la URI ${data.url} a la cola. Está llena.")
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
                 }
-    }
+            }
+            catch(e: InterruptedException){
+                logger.error("No se ha podido añadir la URI ${data.url} a la cola. Ha ocurrido un error.")
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+            }
+
+            val response = ShortUrlDataOut(
+                url = url,
+                // Si data.qr es true, se añade la propiedad qr a la respuesta
+                // Si data.qr es false, crea un mapa vacio
+                properties = when (data.qr) {
+                    true -> mapOf(
+                        "qr" to linkTo<UrlShortenerControllerImpl> { generateQR(it.hash, request) }.toUri()
+                    )
+                    false -> mapOf()
+                }
+            )
+            ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
+        }
+    @GetMapping("/{id:(?!api|index).*}/qr")
+    override fun generateQR(
+        @PathVariable id: String,
+        request: HttpServletRequest
+    ): ResponseEntity<ByteArrayResource> =
+
+        qrUseCase.getQR(id).let {
+            println("QR: " + it)
+            val headers = HttpHeaders()
+            headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
+            ResponseEntity<ByteArrayResource>(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
+        }
 }

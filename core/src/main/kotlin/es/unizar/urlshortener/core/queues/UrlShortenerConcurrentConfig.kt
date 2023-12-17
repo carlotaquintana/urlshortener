@@ -15,6 +15,7 @@ import java.util.concurrent.Executor
 @EnableScheduling
 open class UrlShortenerConcurrentConfig {
     @Bean("verificarAlcanzabilidad")
+    @Bean("configuracionConcurrente")
     open fun executor(): Executor {
         val executor = ThreadPoolTaskExecutor()
         executor.initialize()
