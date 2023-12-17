@@ -201,8 +201,18 @@ class UrlShortenerControllerImpl(
                                     .toUri()
                     h.location = url
 
-                    // Se añade la URI a la cola para verificación asíncrona
-                    reachableQueue.put(data.url)
+                    // Se añade la URI a la cola para verificación asíncrona mirando primero
+                    // si hay capacidad en la cola
+                    try{
+                        if(!reachableQueue.offer(data.url)) {
+                            logger.error("No se ha podido añadir la URI ${data.url} a la cola. Está llena.")
+                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+                        }
+                    }
+                    catch(e: InterruptedException){
+                        logger.error("No se ha podido añadir la URI ${data.url} a la cola. Ha ocurrido un error.")
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+                    }
 
                     val response =
                             ShortUrlDataOut(

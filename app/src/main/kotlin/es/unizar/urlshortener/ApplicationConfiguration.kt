@@ -59,7 +59,7 @@ class ApplicationConfiguration(
 
     @Bean
     @Qualifier("reachableQueue")
-    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue() // esto es infinito, no tiene restriccion
+    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue(1000)
 
     @Bean
     @Qualifier("reachableQueueMetric")
