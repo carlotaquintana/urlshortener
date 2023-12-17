@@ -124,7 +124,7 @@ class UrlShortenerControllerImpl(
             request: HttpServletRequest
     ): ResponseEntity<ByteArrayResource> =
 
-            qrUseCase.getQR(id, linkTo<UrlShortenerControllerImpl> { redirectTo(id, request) }.toString()).let {
+            qrUseCase.getQR(id).let {
                 println("QR: " + it)
                 val headers = HttpHeaders()
                 headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)

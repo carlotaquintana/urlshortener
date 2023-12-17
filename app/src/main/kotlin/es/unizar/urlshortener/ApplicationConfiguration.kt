@@ -51,11 +51,14 @@ class ApplicationConfiguration(
 
     @Bean
     fun qrUseCase() =
-        QrUseCaseImpl(shortUrlRepositoryService(), qrMap())
+        QrUseCaseImpl(shortUrlRepositoryService(), qrMap(), qrService())
     @Bean
     fun qrMap(): HashMap<String, ByteArray> = HashMap()
 
     @Bean
     fun qrQueue(): BlockingQueue<Pair<String, String>> = LinkedBlockingQueue()
+
+    @Bean
+    fun qrService() = QrServiceImpl()
 
 }

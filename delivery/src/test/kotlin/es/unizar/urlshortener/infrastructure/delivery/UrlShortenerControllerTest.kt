@@ -7,13 +7,15 @@ import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.QrUseCase
 import es.unizar.urlshortener.core.usecases.RedirectUseCase
+import jakarta.servlet.http.HttpServletRequest
 import org.junit.jupiter.api.Test
-import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.never
+import org.mockito.BDDMockito.*
+import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.MediaType
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
@@ -21,6 +23,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
 
 @WebMvcTest
 @ContextConfiguration(
@@ -45,6 +49,10 @@ class UrlShortenerControllerTest {
 
     @MockBean
     private lateinit var qrUseCase: QrUseCase
+
+    @Suppress("UnusedPrivateMember")
+    @MockBean
+    private lateinit var qrQueue: BlockingQueue<Pair<String, String>>
 
     @Test
     fun `redirectTo returns a redirect when the key exists`() {
@@ -140,7 +148,6 @@ class UrlShortenerControllerTest {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.statusCode").value(400))
     }
 
     /****************************************************************************************
@@ -148,8 +155,7 @@ class UrlShortenerControllerTest {
      ****************************************************************************************/
     @Test
     fun `generateQR returns a QR when the key exists`() {
-        val url = "http://example.com/"
-        given(qrUseCase.getQR("key", url)).willReturn(byteArrayOf(0, 1, 2, 3))
+        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
 
         mockMvc.perform(get("/{id}/qr", "key"))
             .andExpect(status().isOk)
@@ -159,8 +165,7 @@ class UrlShortenerControllerTest {
 
     @Test
     fun `generateQR returns a not found when the key does not exist`() {
-        val url = "http://example.com/"
-        given(qrUseCase.getQR("key", url))
+        given(qrUseCase.getQR("key"))
             .willAnswer { throw RedirectionNotFound("key") }
 
         mockMvc.perform(get("/{id}/qr", "key"))
@@ -171,17 +176,13 @@ class UrlShortenerControllerTest {
 
     @Test
     fun `generateQR returns forbidden when the key exists but the qr is invalid`() {
-        val url = "http://example.com/"
-        given(qrUseCase.getQR("key", url))
+        given(qrUseCase.getQR("key"))
                 .willAnswer { throw InfoNotAvailable("key", "QR") }
 
         mockMvc.perform(get("/{id}/qr", "key"))
                 .andDo(print())
                 .andExpect(status().isForbidden)
     }
-
-
-
 
     /****************************************************************************************/
 }

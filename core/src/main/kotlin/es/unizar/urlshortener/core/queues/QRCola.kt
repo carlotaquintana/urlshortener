@@ -21,7 +21,7 @@ open class QRCola(
         if (!qrQueue.isEmpty()) {
             val result = qrQueue.take()
             logger.info("Generating QR for ${result.first}")
-            qrUseCase.getQR(result.first, result.second)
+            qrUseCase.createQR(result.first, result.second)
         }
     }
 }
