@@ -29,8 +29,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
-import java.net.URI
-import java.util.concurrent.BlockingQueue
 
 
 /** The specification of the controller. */
@@ -52,7 +50,6 @@ interface UrlShortenerController {
             data: ShortUrlDataIn,
             request: HttpServletRequest
     ): ResponseEntity<ShortUrlDataOut>
-    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut>
 
     /**
      * Generates a QR code for a short url identified by its [id].
@@ -60,20 +57,21 @@ interface UrlShortenerController {
     fun generateQR(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
 }
 
-/** Data required to create a short url. */
-data class ShortUrlDataIn(val url: String, val sponsor: String? = null)
 
 /** Data returned after the creation of a short url. */
 data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any> = emptyMap())
 
 /**
- * Service responsible for processing messages in the queue to update the redirection counter.
+ * Data used to create a short url.
  */
 data class ShortUrlDataIn(
     val url: String,
     val sponsor: String? = null,
     val qr: Boolean
 )
+/**
+ * Service responsible for processing messages in the queue to update the redirection counter.
+ */
 @Service
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class RedirectCounterService (
@@ -157,11 +155,8 @@ class UriCounterService (
 @RestController
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class UrlShortenerControllerImpl(
-        val redirectUseCase: RedirectUseCase,
-        val logClickUseCase: LogClickUseCase,
-        val createShortUrlUseCase: CreateShortUrlUseCase,
         val qrUseCase: QrUseCase,
-        val qrQueue: BlockingQueue<Pair<String, String>>
+        val qrQueue: BlockingQueue<Pair<String, String>>,
         val redirectUseCase: RedirectUseCase,
         val logClickUseCase: LogClickUseCase,
         val createShortUrlUseCase: CreateShortUrlUseCase,

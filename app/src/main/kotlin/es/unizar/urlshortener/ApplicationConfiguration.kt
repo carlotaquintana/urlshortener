@@ -19,8 +19,6 @@ import org.springframework.context.annotation.Configuration
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.time.OffsetDateTime
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
 
 /**
  * Wires use cases with service implementations, and services implementations with repositories.
