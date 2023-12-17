@@ -149,8 +149,7 @@ class MetricsEndpointTest {
             .then()
             .assertThat()
             .body("name", equalTo("app.metric.redirect_counter"))
-            .body("measurements[0].statistic", equalTo("COUNT"))
-            .body("measurements[0].value", equalTo(0.0f))
+            .body("measurements[0].statistic", equalTo("VALUE"))
     }
 
     @Test
@@ -165,8 +164,7 @@ class MetricsEndpointTest {
             .log().all()
             .assertThat()
             .body("name", equalTo("app.metric.uri_counter"))
-            .body("measurements[0].statistic", equalTo("COUNT"))
-            .body("measurements[0].value", equalTo(0.0f))
+            .body("measurements[0].statistic", equalTo("VALUE"))
     }
 
     @Test

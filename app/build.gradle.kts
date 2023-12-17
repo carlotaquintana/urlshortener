@@ -14,7 +14,6 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("io.rest-assured:rest-assured:4.4.1")
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("io.springfox:springfox-boot-starter:3.0.0")
 
 
 
