@@ -13,6 +13,7 @@ import java.util.concurrent.Executor
 @Configuration
 @EnableAsync
 @EnableScheduling
+@Suppress("NewLineAtEndOfFile")
 open class UrlShortenerConcurrentConfig {
 
     @Bean("configuracionConcurrente")

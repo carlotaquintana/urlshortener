@@ -3,6 +3,11 @@ plugins {
     kotlin("plugin.spring")
 }
 
+repositories{
+    mavenCentral()
+}
+
+
 dependencies {
     implementation(project(":core"))
     implementation("org.springframework.boot:spring-boot-starter-web")

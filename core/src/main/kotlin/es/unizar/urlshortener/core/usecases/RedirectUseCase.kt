@@ -25,4 +25,3 @@ class RedirectUseCaseImpl(
         ?.redirection
         ?: throw RedirectionNotFound(key)
 }
-

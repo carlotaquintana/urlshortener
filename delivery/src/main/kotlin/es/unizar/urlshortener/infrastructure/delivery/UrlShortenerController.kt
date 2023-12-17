@@ -1,6 +1,7 @@
 package es.unizar.urlshortener.infrastructure.delivery
 
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
+import es.unizar.urlshortener.core.usecases.LimitUseCase
 import es.unizar.urlshortener.core.usecases.LogClickUseCase
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
 import es.unizar.urlshortener.core.usecases.QrUseCase
@@ -30,8 +31,9 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 
-
-/** The specification of the controller. */
+/**
+ * The specification of the controller.
+ */
 interface UrlShortenerController {
 
     /**
@@ -46,10 +48,8 @@ interface UrlShortenerController {
      *
      * **Note**: Delivery of use case [CreateShortUrlUseCase].
      */
-    fun shortener(
-            data: ShortUrlDataIn,
-            request: HttpServletRequest
-    ): ResponseEntity<ShortUrlDataOut>
+    fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int? = null):
+            ResponseEntity<ShortUrlDataOut>
 
     /**
      * Generates a QR code for a short url identified by its [id].
@@ -57,17 +57,14 @@ interface UrlShortenerController {
     fun generateQR(id: String, request: HttpServletRequest): ResponseEntity<ByteArrayResource>
 }
 
-
-/** Data returned after the creation of a short url. */
-data class ShortUrlDataOut(val url: URI? = null, val properties: Map<String, Any> = emptyMap())
-
 /**
- * Data used to create a short url.
+ * Data required to create a short url.
  */
 data class ShortUrlDataIn(
     val url: String,
     val sponsor: String? = null,
-    val qr: Boolean
+    val qr: Boolean,
+    val limit: Int? = null
 )
 /**
  * Service responsible for processing messages in the queue to update the redirection counter.
@@ -110,8 +107,13 @@ class RedirectCounterService (
 }
 
 /**
- * Service responsible for processing messages in the queue to update the URI counter.
+ * Data returned after the creation of a short url.
  */
+data class ShortUrlDataOut(
+    val url: URI? = null,
+    val properties: Map<String, Any?> = emptyMap()
+)
+
 @Service
 @Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
 class UriCounterService (
@@ -153,15 +155,16 @@ class UriCounterService (
  * **Note**: Spring Boot is able to discover this [RestController] without further configuration.
  */
 @RestController
-@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport")
+@Suppress("SwallowedException", "ReturnCount", "UnusedPrivateProperty", "WildcardImport", "LongParameterList")
 class UrlShortenerControllerImpl(
-        val qrUseCase: QrUseCase,
-        val qrQueue: BlockingQueue<Pair<String, String>>,
-        val redirectUseCase: RedirectUseCase,
-        val logClickUseCase: LogClickUseCase,
-        val createShortUrlUseCase: CreateShortUrlUseCase,
-        val reachableURIUseCase: ReachableURIUseCase,
-        val reachableQueue: BlockingQueue<String>
+    val redirectUseCase: RedirectUseCase,
+    val logClickUseCase: LogClickUseCase,
+    val createShortUrlUseCase: CreateShortUrlUseCase,
+    val limitUseCase: LimitUseCase,
+    val qrUseCase: QrUseCase,
+    val qrQueue: BlockingQueue<Pair<String, String>>,
+    val reachableURIUseCase: ReachableURIUseCase,
+    val reachableQueue: BlockingQueue<String>
 ) : UrlShortenerController {
 
     private val logger: Logger = LogManager.getLogger(UrlShortenerController::class.java)
@@ -173,6 +176,13 @@ class UrlShortenerControllerImpl(
             request: HttpServletRequest
     ): ResponseEntity<Map<String, String>> {
         try {
+            // Cada vez que se llama a redirectTo se incrementa el número de redirecciones.
+            // Si se ha excedido el límite, se devuelve un 429 Too Many Requests
+            if (limitUseCase.limitExceeded(id)){
+                logger.info("Se ha excedido el límite de redirecciones para $id")
+                val h = HttpHeaders()
+                return ResponseEntity(h, HttpStatus.TOO_MANY_REQUESTS)
+            }
             val redirectionResult = redirectUseCase.redirectTo(id)
             // Mirar si es alcanzable
             if (reachableURIUseCase.reachable(redirectionResult.target)) {
@@ -200,24 +210,29 @@ class UrlShortenerControllerImpl(
     }
 
     @PostMapping("/api/link", consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE])
-    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest): ResponseEntity<ShortUrlDataOut> =
+    override fun shortener(data: ShortUrlDataIn, request: HttpServletRequest, limit: Int?):
+            ResponseEntity<ShortUrlDataOut> =
         createShortUrlUseCase.create(
             url = data.url,
             data = ShortUrlProperties(
                 ip = request.remoteAddr,
                 sponsor = data.sponsor,
-                qr = data.qr
+                qr = data.qr,
+                limit = limit
             )
         ).let {
             val h = HttpHeaders()
-            val url =
-                linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }
-                    .toUri()
+            val url = linkTo<UrlShortenerControllerImpl> { redirectTo(it.hash, request) }.toUri()
             h.location = url
 
             // En el caso que el qr sea true, se añaden el id del qr y la url a la cola
             if (data.qr) {
                 qrQueue.add(Pair(it.hash, data.url))
+            }
+
+            // Se mira el límite y si es negativo se devuelve un 400
+            if (limit != null && limit < 0) {
+                return ResponseEntity.badRequest().build()
             }
 
             // Se añade la URI a la cola para verificación asíncrona mirando primero
@@ -232,18 +247,17 @@ class UrlShortenerControllerImpl(
                 logger.error("No se ha podido añadir la URI ${data.url} a la cola. Ha ocurrido un error.")
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
             }
-
             val response = ShortUrlDataOut(
                 url = url,
-                // Si data.qr es true, se añade la propiedad qr a la respuesta
-                // Si data.qr es false, crea un mapa vacio
-                properties = when (data.qr) {
-                    true -> mapOf(
-                        "qr" to linkTo<UrlShortenerControllerImpl> { generateQR(it.hash, request) }.toUri()
-                    )
+                properties = mapOf(
+                    "safe" to it.properties.safe,
+                    "limit" to it.properties.limit
+                ) + when (data.qr) {
+                    true -> mapOf("qr" to linkTo<UrlShortenerControllerImpl> { generateQR(it.hash, request) }.toUri())
                     false -> mapOf()
                 }
             )
+
             ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
     @GetMapping("/{id:(?!api|index).*}/qr")
