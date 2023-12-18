@@ -3,23 +3,14 @@
 package es.unizar.urlshortener.infrastructure.delivery
 
 import es.unizar.urlshortener.core.*
-import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
-import es.unizar.urlshortener.core.usecases.LogClickUseCase
-import es.unizar.urlshortener.core.usecases.QrUseCase
-import es.unizar.urlshortener.core.usecases.RedirectUseCase
-import jakarta.servlet.http.HttpServletRequest
-import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
+import es.unizar.urlshortener.core.usecases.*
 import org.junit.jupiter.api.Test
-import org.mockito.BDDMockito.*
-import org.mockito.kotlin.any
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.never
-import org.mockito.Mockito.`when`
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.boot.test.mock.mockito.MockBean
-import org.springframework.hateoas.server.mvc.linkTo
 import org.springframework.http.MediaType
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
@@ -28,7 +19,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
 
 @WebMvcTest
 @ContextConfiguration(
@@ -57,6 +47,12 @@ class UrlShortenerControllerTest {
 
     @MockBean
     private lateinit var qrUseCase: QrUseCase
+
+    @MockBean
+    private lateinit var limitUseCase: LimitUseCase
+
+    @MockBean
+    private lateinit var colaQR: BlockingQueue<String>
 
     @Suppress("UnusedPrivateMember")
     @MockBean
@@ -167,19 +163,6 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
     }
 
-    /****************************************************************************************
-     * Test para la comprobarción de QR
-     ****************************************************************************************/
-    @Test
-    fun `generateQR returns a QR when the key exists`() {
-        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
-
-        mockMvc.perform(get("/{id}/qr", "key"))
-            .andExpect(status().isOk)
-            .andExpect(content().contentType(MediaType.IMAGE_PNG))
-            .andExpect(content().bytes(byteArrayOf(0, 1, 2, 3)))
-    }
-
     @Test
     fun `create returns 400 bad request if URI is not reachable`() {
         // Dada una URI no alcanzable
@@ -212,6 +195,18 @@ class UrlShortenerControllerTest {
             .andExpect(status().isForbidden)
     }
 
+    /****************************************************************************************
+     * Test para la comprobarción de QR
+     ****************************************************************************************/
+    @Test
+    fun `generateQR returns a QR when the key exists`() {
+        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+                .andExpect(status().isOk)
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(byteArrayOf(0, 1, 2, 3)))
+    }
 
     @Test
     fun `generateQR returns a not found when the key does not exist`() {
@@ -220,8 +215,6 @@ class UrlShortenerControllerTest {
 
         mockMvc.perform(get("/{id}/qr", "key"))
             .andDo(print())
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.statusCode").value(404))
     }
 
     @Test

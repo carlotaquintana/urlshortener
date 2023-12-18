@@ -11,6 +11,7 @@ import es.unizar.urlshortener.core.ShortUrlProperties
 import es.unizar.urlshortener.core.ClickProperties
 import es.unizar.urlshortener.core.ClickRepositoryService
 import es.unizar.urlshortener.core.ShortUrlRepositoryService
+import es.unizar.urlshortener.core.queues.QRCola
 
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
@@ -268,9 +269,44 @@ class UrlShortenerControllerImpl(
     ): ResponseEntity<ByteArrayResource> =
 
         qrUseCase.getQR(id).let {
-            println("QR: " + it)
+            val logger: Logger = LogManager.getLogger(QRCola::class.java)
+            logger.info("QR $id")
             val headers = HttpHeaders()
             headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
-            ResponseEntity<ByteArrayResource>(ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
+            val responseEntity = ResponseEntity<ByteArrayResource>(
+                ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
+            logger.info("Estado ${responseEntity.statusCode}")
+            responseEntity
         }
+
+        /*
+        if (limitUseCase.limitExceeded(id)) {
+            logger.info("Se ha excedido el límite de redirecciones para $id")
+            val h = HttpHeaders()
+            return ResponseEntity(h, HttpStatus.TOO_MANY_REQUESTS)
+        }
+        val redirectionResult = redirectUseCase.redirectTo(id)
+        // Mirar si es alcanzable
+        if (reachableURIUseCase.reachable(redirectionResult.target)) {
+            // Se ha comprobado que es alcanzable, se crea el QR
+            return qrUseCase.getQR(id).let {
+                val logger: Logger = LogManager.getLogger(QRCola::class.java)
+                logger.info("QR $id")
+                val headers = HttpHeaders()
+                headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
+                val responseEntity = ResponseEntity<ByteArrayResource>(
+                        ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
+                logger.info("Estado ${responseEntity.statusCode}")
+                responseEntity
+            }
+        } else {
+            // El id está registrado pero aún no se ha confirmado que sea alcanzable. Se
+            // devuelve una respuesta con estado 400 Bad Request y una cabecera
+            // Retry-After indicando cuanto tiempo se debe esperar antes de volver a intentarlo
+            logger.info("La uri ${redirectionResult.target} no es alcanzable, devolviendo error 400")
+            val h = HttpHeaders()
+            h.set("Retry-After", "10")
+            return ResponseEntity(h, HttpStatus.BAD_REQUEST)
+        }*/
+
 }
