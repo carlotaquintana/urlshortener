@@ -235,6 +235,10 @@ class UrlShortenerControllerImpl(
             if (limit != null && limit < 0) {
                 return ResponseEntity.badRequest().build()
             }
+            else{
+                // Se añade la nueva redirección
+                limitUseCase.newRedirect(data.url, limit ?: 0)
+            }
 
             // Se añade la URI a la cola para verificación asíncrona mirando primero
             // si hay capacidad en la cola
@@ -242,6 +246,10 @@ class UrlShortenerControllerImpl(
                 if(!reachableQueue.offer(data.url)) {
                     logger.error("No se ha podido añadir la URI ${data.url} a la cola. Está llena.")
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+                }
+                else{
+                    // Se añade la URI a la cola para verificación asíncrona
+                    reachableQueue.put(data.url)
                 }
             }
             catch(e: InterruptedException){
