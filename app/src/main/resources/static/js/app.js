@@ -1,3 +1,6 @@
+/**
+ * Event handler for the form submit event.
+ */
 function getData(event) {
     // Prevent the form from submitting via the browser.
     event.preventDefault();
@@ -5,6 +8,12 @@ function getData(event) {
         document.getElementsByName('qr').item(0).checked);
 }
 
+/**
+ * Sends a POST request to a specified API endpoint to create a link with optional QR Code generation.
+ *
+ * @param {string} url - The URL to be associated with the link.
+ * @param {boolean} qr - A flag indicating whether to generate a QR Code (true) or not (false).
+ **/
 function getURL(url, qr){
     let encodedBody = new URLSearchParams();
     encodedBody.append('url', url);
@@ -45,56 +54,5 @@ function getURL(url, qr){
         );
 }
 
-/*
-function getQR(url, hash){
-    var widthProp = "-webkit-fill-available"
-
-        fetch(`/${hash}/qr`).then(response => {
-                if(!response.ok) {
-                    throw Error(response.status)
-                }
-                return response.blob()
-            })
-            .then(blob => {
-                var image = URL.createObjectURL(blob);
-                document.getElementById('result').innerHTML =
-                    `<div class='alert alert-success lead'>
-                        <a target='_blank' href="${url}">${url}</a>
-                        <br>
-                        <img src="${image}" style="width: ${widthProp};margin: 1rem 0; border-radius: 5%; border: 15px solid white"/>
-                    </div>`;
-            })
-            .catch(() =>
-                document.getElementById('result').innerHTML =
-                    `<div class='alert alert-danger lead'>ERROR</div>`
-            );
-}*/
-
 document.getElementById('shortener').addEventListener('submit', getData);
 
-/*$(document).ready(
-    function () {
-        $("#shortener").submit(
-            function (event) {
-                event.preventDefault();
-                $.ajax({
-                    type: "POST",
-                    url: "/api/link",
-                    data: $(this).serialize(),
-                    success: function (msg, status, request) {
-                        $("#result").html(
-                            "<div class='alert alert-success lead'><a target='_blank' href='"
-                            + request.getResponseHeader('Location')
-                            + "'>"
-                            + request.getResponseHeader('Location')
-                            + "</a></div>");
-                    },
-                    error: function () {
-                        $("#result").html(
-                            "<div class='alert alert-danger lead'>ERROR</div>");
-                    }
-                });
-            });
-    });
-
-*/

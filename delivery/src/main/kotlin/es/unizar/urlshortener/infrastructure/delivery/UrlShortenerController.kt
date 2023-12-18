@@ -260,6 +260,7 @@ class UrlShortenerControllerImpl(
 
             ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
+
     @GetMapping("/{id:(?!api|index).*}/qr")
     override fun generateQR(
         @PathVariable id: String,

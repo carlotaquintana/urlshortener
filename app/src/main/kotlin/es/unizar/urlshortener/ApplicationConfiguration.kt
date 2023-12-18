@@ -7,7 +7,6 @@ import es.unizar.urlshortener.core.usecases.QrUseCaseImpl
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCaseImpl
 import es.unizar.urlshortener.core.usecases.RedirectUseCaseImpl
 import es.unizar.urlshortener.infrastructure.delivery.HashServiceImpl
-import es.unizar.urlshortener.infrastructure.delivery.QrServiceImpl
 import es.unizar.urlshortener.infrastructure.delivery.ValidatorServiceImpl
 import es.unizar.urlshortener.infrastructure.repositories.ClickEntityRepository
 import es.unizar.urlshortener.infrastructure.repositories.ClickRepositoryServiceImpl
@@ -59,16 +58,12 @@ class ApplicationConfiguration(
 
     @Bean
     fun qrUseCase() =
-        QrUseCaseImpl(shortUrlRepositoryService(), qrMap(), qrService())
+        QrUseCaseImpl(shortUrlRepositoryService(), qrMap())
     @Bean
     fun qrMap(): HashMap<String, ByteArray> = HashMap()
 
     @Bean
     fun qrQueue(): BlockingQueue<Pair<String, String>> = LinkedBlockingQueue()
-
-    @Bean
-    fun qrService() = QrServiceImpl()
-
 
     @Bean
     fun reachableMap(): HashMap<String, Pair<Boolean, OffsetDateTime>> = HashMap()

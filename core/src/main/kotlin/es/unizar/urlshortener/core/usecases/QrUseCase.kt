@@ -1,29 +1,42 @@
 package es.unizar.urlshortener.core.usecases
 
 import es.unizar.urlshortener.core.InfoNotAvailable
-import es.unizar.urlshortener.core.QrService
 import es.unizar.urlshortener.core.RedirectionNotFound
 import es.unizar.urlshortener.core.ShortUrlRepositoryService
 import io.github.g0dkar.qrcode.QRCode
 import java.io.ByteArrayOutputStream
 
+/**
+ * This class handles the generation and retrieval of QR Codes.
+ *
+ * [createQR] method generates a QR Code based on an ID and a URL.
+ *
+ * [getQR] method retrieves a pre-existing QR Code using its ID.
+ *
+ * Note: Before retrieving a QR Code using [getQR], it must be generated
+ * in advance using the [createQR] method.
+ */
 interface QrUseCase {
     fun createQR(id: String, url: String)
 
     fun getQR(id: String): ByteArray
 }
 
+/**
+ * Implementation of [QrUseCase].
+ */
 class QrUseCaseImpl(
         private val shortUrlRepository: ShortUrlRepositoryService,
-        private val qrMap: HashMap<String, ByteArray>,
-        private val qrService: QrService
+        private val qrMap: HashMap<String, ByteArray>
 ) : QrUseCase {
 
     override fun createQR(id: String, url: String) {
         shortUrlRepository.findByKey(id)?.let {
-            println("ID generate QR")
-            println(id)
-            qrMap.put(id, qrService.getQr(url))
+            qrMap.getOrPut(id) {
+                val image = ByteArrayOutputStream()
+                QRCode(url).render().writeImage(image)
+                image.toByteArray()
+            }
         } ?: throw RedirectionNotFound(id)
     }
 
@@ -31,16 +44,6 @@ class QrUseCaseImpl(
         shortUrlRepository.findByKey(id)?.let {
 
             if (it.properties.qr == true) {
-
-                println("Dentro del if")
-                println(id)
-                /*qrMap.getOrPut(id) {
-                    println("Dentro del getOrPut")
-                    println(id)
-                    val image = ByteArrayOutputStream()
-                    QRCode(url).render().writeImage(image)
-                    image.toByteArray()
-                }*/
                 qrMap[id]
             } else {
                 throw InfoNotAvailable(id, "QR")
