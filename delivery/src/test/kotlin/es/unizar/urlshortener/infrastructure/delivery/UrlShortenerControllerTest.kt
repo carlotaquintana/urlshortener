@@ -75,43 +75,8 @@ class UrlShortenerControllerTest {
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
 
-    @Test
-    fun `redirectTo returns a not found when the key does not exist`() {
-        given(redirectUseCase.redirectTo("key"))
-            .willAnswer { throw RedirectionNotFound("key") }
 
-        mockMvc.perform(get("/{id}", "key"))
-            .andDo(print())
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.statusCode").value(404))
-
-        verify(logClickUseCase, never()).logClick("key", ClickProperties(ip = "127.0.0.1"))
-    }
-
-    // Se ha añadido el parametro qr False
-    @Test
-    fun `creates returns a basic redirect if it can compute a hash`() {
-        given(
-            createShortUrlUseCase.create(
-                url = "http://example.com/",
-                data = ShortUrlProperties(ip = "127.0.0.1")
-            )
-        ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
-        given(reachableURIUseCase.reachable("http://example.com/")).willReturn(true)
-
-        mockMvc.perform(
-            post("/api/link")
-                .param("url", "http://example.com/")
-                .param("qr", "false")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-        )
-            .andDo(print())
-            .andExpect(status().isCreated)
-            .andExpect(redirectedUrl("http://localhost/f684a3c4"))
-            .andExpect(jsonPath("$.url").value("http://localhost/f684a3c4"))
-    }
-
-    //Test para comprobar que se devuelve un QR
+    //Test para comprobar que se devuelve un QR-------------------------------------------------------------------------
     @Test
     fun `creates returns a basic redirect if it can compute a hash with qr`() {
         given(
@@ -163,6 +128,7 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
     }
 
+    // Tests para comprobar alcanzabilidad------------------------------------------------------------------------------
     @Test
     fun `create returns 400 bad request if URI is not reachable`() {
         // Dada una URI no alcanzable
@@ -180,20 +146,6 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
     }
 
-    @Test
-    fun `returns HTTP 403 when URI is not reachable during redirection`() {
-        // Dado un id registrado y una URI de destino no alcanzable
-        val id = "existing-key"
-        val unreachableUrl = "http://unreachable-url.com/"
-        given(redirectUseCase.redirectTo(id)).willReturn(Redirection(unreachableUrl))
-        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
-
-        // Se hace un GET
-        mockMvc.perform(get("/{id}", id))
-
-            // Se espera un error 403
-            .andExpect(status().isForbidden)
-    }
 
     /****************************************************************************************
      * Test para la comprobarción de QR

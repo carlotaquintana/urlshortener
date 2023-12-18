@@ -258,7 +258,6 @@ class UrlShortenerControllerImpl(
                     false -> mapOf()
                 }
             )
-
             ResponseEntity<ShortUrlDataOut>(response, h, HttpStatus.CREATED)
         }
 
