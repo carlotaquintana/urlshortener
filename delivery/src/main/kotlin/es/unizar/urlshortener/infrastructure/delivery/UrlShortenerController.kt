@@ -228,7 +228,7 @@ class UrlShortenerControllerImpl(
 
             // En el caso que el qr sea true, se añaden el id del qr y la url a la cola
             if (data.qr) {
-                qrQueue.add(Pair(it.hash, data.url))
+                qrQueue.add(Pair(it.hash, url.toString()))
             }
 
             // Se mira el límite y si es negativo se devuelve un 400
@@ -272,40 +272,8 @@ class UrlShortenerControllerImpl(
             logger.info("QR $id")
             val headers = HttpHeaders()
             headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
-            val responseEntity = ResponseEntity<ByteArrayResource>(
+            ResponseEntity<ByteArrayResource>(
                 ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
-            logger.info("Estado ${responseEntity.statusCode}")
-            responseEntity
         }
-
-        /*
-        if (limitUseCase.limitExceeded(id)) {
-            logger.info("Se ha excedido el límite de redirecciones para $id")
-            val h = HttpHeaders()
-            return ResponseEntity(h, HttpStatus.TOO_MANY_REQUESTS)
-        }
-        val redirectionResult = redirectUseCase.redirectTo(id)
-        // Mirar si es alcanzable
-        if (reachableURIUseCase.reachable(redirectionResult.target)) {
-            // Se ha comprobado que es alcanzable, se crea el QR
-            return qrUseCase.getQR(id).let {
-                val logger: Logger = LogManager.getLogger(QRCola::class.java)
-                logger.info("QR $id")
-                val headers = HttpHeaders()
-                headers.set(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_PNG_VALUE)
-                val responseEntity = ResponseEntity<ByteArrayResource>(
-                        ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
-                logger.info("Estado ${responseEntity.statusCode}")
-                responseEntity
-            }
-        } else {
-            // El id está registrado pero aún no se ha confirmado que sea alcanzable. Se
-            // devuelve una respuesta con estado 400 Bad Request y una cabecera
-            // Retry-After indicando cuanto tiempo se debe esperar antes de volver a intentarlo
-            logger.info("La uri ${redirectionResult.target} no es alcanzable, devolviendo error 400")
-            val h = HttpHeaders()
-            h.set("Retry-After", "10")
-            return ResponseEntity(h, HttpStatus.BAD_REQUEST)
-        }*/
 
 }
