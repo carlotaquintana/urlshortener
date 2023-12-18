@@ -20,6 +20,13 @@ interface LimitUseCase {
      * @return true si se ha superado el límite, false en caso contrario
      */
     fun limitExceeded(hash: String): Boolean
+
+    /**
+     * Obtiene información del límite y número de redirecciones para un hash dado.
+     * @param hash hash de la url
+     * @return Pair con el límite y número de redirecciones (null si no se encuentra el hash)
+     */
+    fun getLimitAndRedirections(hash: String): Pair<Int, Long>?
 }
 
 /**
@@ -84,5 +91,10 @@ class LimitUseCaseImpl: LimitUseCase {
             }
         }
         return exceeded
+    }
+
+    override fun getLimitAndRedirections(hash: String): Pair<Int, Long>? {
+        val redirection = redirectionList.find { it.first == hash }
+        return redirection?.let { Pair(it.third, it.second.availableTokens) }
     }
 }

@@ -233,10 +233,12 @@ class UrlShortenerControllerImpl(
 
             // Se mira el límite y si es negativo se devuelve un 400
             if (limit != null && limit < 0) {
+                logger.error("El límite de redirecciones no puede ser negativo")
                 return ResponseEntity.badRequest().build()
             }
             else{
                 // Se añade la nueva redirección
+                logger.info("Se ha añadido la redirección ${data.url} con límite $limit")
                 limitUseCase.newRedirect(data.url, limit ?: 0)
             }
 
@@ -248,6 +250,7 @@ class UrlShortenerControllerImpl(
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
                 }
                 else{
+                    logger.info("Se ha añadido la URI ${data.url} a la cola.")
                     // Se añade la URI a la cola para verificación asíncrona
                     reachableQueue.put(data.url)
                 }
@@ -283,5 +286,20 @@ class UrlShortenerControllerImpl(
             ResponseEntity<ByteArrayResource>(
                 ByteArrayResource(it, MediaType.IMAGE_PNG_VALUE), headers, HttpStatus.OK)
         }
+
+    @GetMapping("/api/link/{id}")
+    fun getLinkInfo(@PathVariable id: String): ResponseEntity<Map<String, Any>> {
+        val limitAndRedirections = limitUseCase.getLimitAndRedirections(id)
+
+        return if (limitAndRedirections != null) {
+            val responseMap = mapOf(
+                "limit" to limitAndRedirections.first,
+                "redirections" to limitAndRedirections.second
+            )
+            ResponseEntity(responseMap, HttpStatus.OK)
+        } else {
+            ResponseEntity(HttpStatus.NOT_FOUND)
+        }
+    }
 
 }
