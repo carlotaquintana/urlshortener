@@ -22,6 +22,7 @@ class CreateShortUrlUseCaseImpl(
     private val validatorService: ValidatorService,
     private val hashService: HashService
 ) : CreateShortUrlUseCase {
+
     // Create a short url from a long url
     override fun create(url: String, data: ShortUrlProperties): ShortUrl {
         // Check if the URL is valid
@@ -38,7 +39,8 @@ class CreateShortUrlUseCaseImpl(
             properties = ShortUrlProperties(
                 safe = data.safe,
                 ip = data.ip,
-                sponsor = data.sponsor
+                sponsor = data.sponsor,
+                qr = data.qr
             )
         )
 

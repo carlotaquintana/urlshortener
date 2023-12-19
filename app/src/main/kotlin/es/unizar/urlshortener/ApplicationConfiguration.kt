@@ -1,7 +1,9 @@
 package es.unizar.urlshortener
 
 import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCaseImpl
+import es.unizar.urlshortener.core.usecases.LimitUseCaseImpl
 import es.unizar.urlshortener.core.usecases.LogClickUseCaseImpl
+import es.unizar.urlshortener.core.usecases.QrUseCaseImpl
 import es.unizar.urlshortener.core.usecases.ReachableURIUseCaseImpl
 import es.unizar.urlshortener.core.usecases.RedirectUseCaseImpl
 import es.unizar.urlshortener.infrastructure.delivery.HashServiceImpl
@@ -11,11 +13,12 @@ import es.unizar.urlshortener.infrastructure.repositories.ClickRepositoryService
 import es.unizar.urlshortener.infrastructure.repositories.ShortUrlEntityRepository
 import es.unizar.urlshortener.infrastructure.repositories.ShortUrlRepositoryServiceImpl
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.time.OffsetDateTime
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
+import java.time.OffsetDateTime
 
 /**
  * Wires use cases with service implementations, and services implementations with repositories.
@@ -23,6 +26,7 @@ import java.util.concurrent.LinkedBlockingQueue
  * **Note**: Spring Boot is able to discover this [Configuration] without further configuration.
  */
 @Configuration
+@Suppress("TooManyFunctions", "MagicNumber")
 class ApplicationConfiguration(
     @Autowired val shortUrlEntityRepository: ShortUrlEntityRepository,
     @Autowired val clickEntityRepository: ClickEntityRepository
@@ -50,13 +54,33 @@ class ApplicationConfiguration(
         CreateShortUrlUseCaseImpl(shortUrlRepositoryService(), validatorService(), hashService())
 
     @Bean
+    fun limitUseCase() = LimitUseCaseImpl()
+
+    @Bean
+    fun qrUseCase() =
+        QrUseCaseImpl(shortUrlRepositoryService(), qrMap())
+    @Bean
+    fun qrMap(): HashMap<String, ByteArray> = HashMap()
+
+    @Bean
+    fun qrQueue(): BlockingQueue<Pair<String, String>> = LinkedBlockingQueue()
+
+    @Bean
     fun reachableMap(): HashMap<String, Pair<Boolean, OffsetDateTime>> = HashMap()
 
     @Bean
     fun reachableUriUseCase() = ReachableURIUseCaseImpl(reachableMap())
 
     @Bean
-    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue()
+    @Qualifier("reachableQueue")
+    fun reachableQueue() : BlockingQueue<String> = LinkedBlockingQueue(100)
 
+    @Bean
+    @Qualifier("reachableQueueMetric")
+    fun reachableQueueMetric() : BlockingQueue<String> = LinkedBlockingQueue(100)
+
+    @Bean
+    @Qualifier("uriQueueMetric")
+    fun uriQueueMetric() : BlockingQueue<String> = LinkedBlockingQueue(100)
 
 }

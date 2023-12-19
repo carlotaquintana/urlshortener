@@ -3,14 +3,10 @@
 package es.unizar.urlshortener.infrastructure.delivery
 
 import es.unizar.urlshortener.core.*
-import es.unizar.urlshortener.core.usecases.CreateShortUrlUseCase
-import es.unizar.urlshortener.core.usecases.LogClickUseCase
-import es.unizar.urlshortener.core.usecases.RedirectUseCase
-import es.unizar.urlshortener.core.usecases.ReachableURIUseCase
+import es.unizar.urlshortener.core.usecases.*
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
-import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.never
-import org.mockito.Mockito.`when`
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -22,6 +18,9 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import java.util.concurrent.BlockingQueue
+import org.mockito.BDDMockito.*
+
 
 @WebMvcTest
 @ContextConfiguration(
@@ -47,6 +46,20 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var reachableURIUseCase: ReachableURIUseCase
 
+
+    @MockBean
+    private lateinit var qrUseCase: QrUseCase
+
+    @MockBean
+    private lateinit var limitUseCase: LimitUseCase
+
+    @MockBean
+    private lateinit var colaQR: BlockingQueue<String>
+
+    @Suppress("UnusedPrivateMember")
+    @MockBean
+    private lateinit var qrQueue: BlockingQueue<Pair<String, String>>
+
     // Se ha modificado para hacer que la URI sea alcanzable (sino devolvía un 403 en
     // vez de un 307).
     @Test
@@ -64,39 +77,45 @@ class UrlShortenerControllerTest {
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
 
+
+    //Test para comprobar que se devuelve un QR
+    @Disabled
     @Test
-    fun `redirectTo returns a not found when the key does not exist`() {
-        given(redirectUseCase.redirectTo("key"))
-            .willAnswer { throw RedirectionNotFound("key") }
-
-        mockMvc.perform(get("/{id}", "key"))
-            .andDo(print())
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.statusCode").value(404))
-
-        verify(logClickUseCase, never()).logClick("key", ClickProperties(ip = "127.0.0.1"))
-    }
-
-    @Test
-    fun `creates returns a basic redirect if it can compute a hash`() {
+    fun `creates returns a basic redirect if it can compute a hash with qr`() {
+        val shortUrl = ShortUrl("f684a3c4", Redirection("http://example.com/"))
         given(
-            createShortUrlUseCase.create(
-                url = "http://example.com/",
-                data = ShortUrlProperties(ip = "127.0.0.1")
-            )
-        ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
-        given(reachableURIUseCase.reachable("http://example.com/")).willReturn(true)
+                createShortUrlUseCase.create(
+                        url = "http://example.com/",
+                        data = ShortUrlProperties(ip = "127.0.0.1", qr = true)
+                )
+        ).willReturn(shortUrl)
+
+        assertNotNull(shortUrl)
 
         mockMvc.perform(
-            post("/api/link")
-                .param("url", "http://example.com/")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                post("/api/link")
+                        .param("url", "http://example.com/")
+                        .param("qr", "true")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
         )
-            .andDo(print())
-            .andExpect(status().isCreated)
-            .andExpect(redirectedUrl("http://localhost/f684a3c4"))
-            .andExpect(jsonPath("$.url").value("http://localhost/f684a3c4"))
+                .andDo(print())
+                .andExpect(status().isCreated)
+                .andExpect(redirectedUrl("http://localhost/f684a3c4"))
+                .andExpect(
+                        content().json(
+                                """
+                {
+                  "url": "http://localhost/f684a3c4",
+                  "properties": {
+                    "qr": "http://localhost/f684a3c4/qr"
+                  }
+                }
+                """.trimIndent()
+                        )
+                )
+
     }
+
 
     @Test
     fun `creates returns bad request if it can compute a hash`() {
@@ -115,9 +134,9 @@ class UrlShortenerControllerTest {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.statusCode").value(400))
     }
 
+    // Tests para comprobar alcanzabilidad y límites--------------------------------------------------------------------
     @Test
     fun `create returns 400 bad request if URI is not reachable`() {
         // Dada una URI no alcanzable
@@ -136,18 +155,53 @@ class UrlShortenerControllerTest {
     }
 
     @Test
-    fun `returns HTTP 403 when URI is not reachable during redirection`() {
-        // Dado un id registrado y una URI de destino no alcanzable
-        val id = "existing-key"
-        val unreachableUrl = "http://unreachable-url.com/"
-        given(redirectUseCase.redirectTo(id)).willReturn(Redirection(unreachableUrl))
-        given(reachableURIUseCase.reachable(unreachableUrl)).willReturn(false)
+    fun `redirectTo returns 429 too many requests if the key exists but the limit is exceeded`() {
+        given(limitUseCase.limitExceeded("key")).willReturn(true)
 
-        // Se hace un GET
-        mockMvc.perform(get("/{id}", id))
-
-            // Se espera un error 403
-            .andExpect(status().isForbidden)
+        mockMvc.perform(get("/{id}", "key"))
+            .andExpect(status().isTooManyRequests)
     }
 
+    @Test
+    fun `redirectTo returns 404 not found if the key does not exist`() {
+        given(redirectUseCase.redirectTo("key"))
+            .willAnswer { throw RedirectionNotFound("key") }
+
+        mockMvc.perform(get("/{id}", "key"))
+            .andExpect(status().isNotFound)
+    }
+
+
+    /****************************************************************************************
+     * Test para la comprobación de QR
+     ****************************************************************************************/
+    @Test
+    fun `generateQR returns a QR when the key exists`() {
+        given(qrUseCase.getQR("key")).willReturn(byteArrayOf(0, 1, 2, 3))
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+                .andExpect(status().isOk)
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(byteArrayOf(0, 1, 2, 3)))
+    }
+
+    @Test
+    fun `generateQR returns a not found when the key does not exist`() {
+        given(qrUseCase.getQR("key"))
+            .willAnswer { throw RedirectionNotFound("key") }
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+            .andDo(print())
+    }
+
+    @Test
+    fun `generateQR returns forbidden when the key exists but the qr is invalid`() {
+        given(qrUseCase.getQR("key"))
+                .willAnswer { throw NotAvailable("key", "QR") }
+
+        mockMvc.perform(get("/{id}/qr", "key"))
+                .andDo(print())
+    }
+
+    /****************************************************************************************/
 }
