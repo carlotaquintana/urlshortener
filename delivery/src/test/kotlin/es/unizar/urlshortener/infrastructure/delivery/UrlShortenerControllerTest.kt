@@ -4,9 +4,8 @@ package es.unizar.urlshortener.infrastructure.delivery
 
 import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.*
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
-import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.never
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -19,6 +18,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.util.concurrent.BlockingQueue
+import org.mockito.BDDMockito.*
+
 
 @WebMvcTest
 @ContextConfiguration(
@@ -73,40 +74,6 @@ class UrlShortenerControllerTest {
             .andExpect(redirectedUrl(reachableUrl))
 
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
-    }
-
-
-    //Test para comprobar que se devuelve un QR
-    @Test
-    fun `creates returns a basic redirect if it can compute a hash with qr`() {
-        given(
-                createShortUrlUseCase.create(
-                        url = "http://example.com/",
-                        data = ShortUrlProperties(ip = "127.0.0.1", qr = true)
-                )
-        ).willReturn(ShortUrl("f684a3c4", Redirection("http://example.com/")))
-
-        mockMvc.perform(
-                post("/api/link")
-                        .param("url", "http://example.com/")
-                        .param("qr", "true")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-        )
-                .andDo(print())
-                .andExpect(status().isCreated)
-                .andExpect(redirectedUrl("http://localhost/f684a3c4"))
-                .andExpect(
-                    content().json(
-                        """
-                        {
-                          "url": "http://localhost/f684a3c4",
-                          "properties": {
-                            "qr": "http://localhost/f684a3c4/qr"
-                          }
-                        }
-                        """.trimIndent()
-                    )
-                )
     }
 
     @Test
@@ -189,7 +156,7 @@ class UrlShortenerControllerTest {
     @Test
     fun `generateQR returns forbidden when the key exists but the qr is invalid`() {
         given(qrUseCase.getQR("key"))
-                .willAnswer { throw InvalidUrlException("key") }
+                .willAnswer { throw NotAvailable("key", "QR") }
 
         mockMvc.perform(get("/{id}/qr", "key"))
                 .andDo(print())

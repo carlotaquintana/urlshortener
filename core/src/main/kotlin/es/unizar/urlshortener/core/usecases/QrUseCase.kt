@@ -1,6 +1,6 @@
 package es.unizar.urlshortener.core.usecases
 
-import es.unizar.urlshortener.core.InfoNotAvailable
+import es.unizar.urlshortener.core.NotAvailable
 import es.unizar.urlshortener.core.RedirectionNotFound
 import es.unizar.urlshortener.core.ShortUrlRepositoryService
 import io.github.g0dkar.qrcode.QRCode
@@ -46,7 +46,7 @@ class QrUseCaseImpl(
             if (it.properties.qr == true) {
                 qrMap[id]
             } else {
-                throw InfoNotAvailable(id, "QR")
+                throw NotAvailable(id, "QR")
             }
 
         } ?: throw RedirectionNotFound(id)
