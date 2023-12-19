@@ -128,7 +128,7 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
     }
 
-    // Tests para comprobar alcanzabilidad------------------------------------------------------------------------------
+    // Tests para comprobar alcanzabilidad y límites--------------------------------------------------------------------
     @Test
     fun `create returns 400 bad request if URI is not reachable`() {
         // Dada una URI no alcanzable
@@ -146,9 +146,26 @@ class UrlShortenerControllerTest {
             .andExpect(status().isBadRequest)
     }
 
+    @Test
+    fun `redirectTo returns 429 too many requests if the key exists but the limit is exceeded`() {
+        given(limitUseCase.limitExceeded("key")).willReturn(true)
+
+        mockMvc.perform(get("/{id}", "key"))
+            .andExpect(status().isTooManyRequests)
+    }
+
+    @Test
+    fun `redirectTo returns 404 not found if the key does not exist`() {
+        given(redirectUseCase.redirectTo("key"))
+            .willAnswer { throw RedirectionNotFound("key") }
+
+        mockMvc.perform(get("/{id}", "key"))
+            .andExpect(status().isNotFound)
+    }
+
 
     /****************************************************************************************
-     * Test para la comprobarción de QR
+     * Test para la comprobación de QR
      ****************************************************************************************/
     @Test
     fun `generateQR returns a QR when the key exists`() {
