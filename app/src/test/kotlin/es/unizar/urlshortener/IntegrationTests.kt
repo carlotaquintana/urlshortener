@@ -227,14 +227,14 @@ class QRTest {
         RestAssured.port = localServerPort
     }
 
-    private fun createShortUrlWithQR(originalUrl: String): ResponseEntity<ShortUrlDataOut> {
+    private fun createShortUrlWithQR(originalUrl: String, qr: String): ResponseEntity<ShortUrlDataOut> {
         val requestHeaders = HttpHeaders().apply {
             contentType = MediaType.APPLICATION_FORM_URLENCODED
         }
 
         val requestBody: MultiValueMap<String, String> = LinkedMultiValueMap<String, String>().apply {
             add("url", originalUrl)
-            add("qr", "true")
+            add("qr", qr)
         }
 
         val apiUrl = "http://localhost:$port/api/link"
@@ -250,7 +250,7 @@ class QRTest {
     @Test
     fun `test creating a short URL returns a basic redirect with QR code`() {
         // Act
-        val responseEntity = createShortUrlWithQR("http://example.com")
+        val responseEntity = createShortUrlWithQR("http://example.com", "true")
 
         // Assert
         assertThat(responseEntity.statusCode).isEqualTo(HttpStatus.CREATED)
@@ -266,8 +266,8 @@ class QRTest {
     @Test
     fun `test QR endpoint returns an image when the key exists`() {
         // Arrange
-        createShortUrlWithQR("http://example.com")
-        TimeUnit.SECONDS.sleep(2L)
+        createShortUrlWithQR("http://example.com", "true")
+        TimeUnit.SECONDS.sleep(5L)
 
         // Act
         val qrCodeResponse = callQR("http://localhost:$port/bf19bedb/qr")
@@ -277,10 +277,10 @@ class QRTest {
         assertThat(qrCodeResponse.body).isNotNull
     }
 
-    /*@Test
+    @Test
     fun `test QR endpoint returns not found when the key does not exist`() {
         // Act
-        val response = callQR("http://localhost:$port/bf19bedb/qr")
+        val response = callQR("http://localhost:$port/bf199999/qr")
 
         // Assert
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -289,16 +289,15 @@ class QRTest {
     @Test
     fun `test QR endpoint returns a bad request when the key exists but no QR code is available`() {
         // Arrange
-        createShortUrlWithQR("http://example.com")
-        TimeUnit.SECONDS.sleep(2L)
+        createShortUrlWithQR("http://example.com", "false")
+        TimeUnit.SECONDS.sleep(5L)
 
         //Act
         val response = callQR("http://localhost:$port/bf19bedb/qr")
 
         //Assert
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-    }*/
-
+    }
 
 }
 
