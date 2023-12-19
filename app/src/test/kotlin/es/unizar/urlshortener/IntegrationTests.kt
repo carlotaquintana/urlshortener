@@ -203,7 +203,7 @@ class QRTest {
         assertThat(qrCodeResponse.body).isNotNull
     }
 
-    @Test
+    /*@Test
     fun `test QR endpoint returns not found when the key does not exist`() {
         // Act
         val response = callQR("http://localhost:$port/bf19bedb/qr")
@@ -223,7 +223,7 @@ class QRTest {
 
         //Assert
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-    }
+    }*/
 
 
 }

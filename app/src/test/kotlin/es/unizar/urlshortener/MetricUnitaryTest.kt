@@ -27,7 +27,9 @@ class RedirectCounterServiceTest {
     fun setUp() {
         meterRegistry = mock(MeterRegistry::class.java)
         clickRepositoryService = mock(ClickRepositoryService::class.java)
+        @Suppress("UNCHECKED_CAST")
         reachableQueueMetric = mock(BlockingQueue::class.java) as BlockingQueue<String>
+        @Suppress("UNCHECKED_CAST")
         uriQueueMetric = mock(BlockingQueue::class.java) as BlockingQueue<String>
         shortUrlRepositoryService = mock(ShortUrlRepositoryService::class.java)
 
@@ -54,11 +56,13 @@ class RedirectCounterServiceTest {
             .thenReturn(uriMetric)
 
         `when`(meterRegistry.gauge(eq(redirectMetric), any())).thenAnswer { invocation ->
+            @Suppress("UNCHECKED_CAST")
             val block = invocation.arguments[1] as () -> Double
             block.invoke()
         }
 
         `when`(meterRegistry.gauge(eq(uriMetric), any())).thenAnswer { invocation ->
+            @Suppress("UNCHECKED_CAST")
             val block = invocation.arguments[1] as () -> Double
             block.invoke()
         }
