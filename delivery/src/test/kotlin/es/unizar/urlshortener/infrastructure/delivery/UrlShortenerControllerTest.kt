@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.util.concurrent.BlockingQueue
 import org.mockito.BDDMockito.*
+import java.time.OffsetDateTime
 
 
 @WebMvcTest
@@ -53,12 +54,15 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var limitUseCase: LimitUseCase
 
+    @Suppress("UnusedPrivateMember")
     @MockBean
-    private lateinit var colaQR: BlockingQueue<String>
+    private lateinit var reachableQueue: BlockingQueue<String>
 
     @Suppress("UnusedPrivateMember")
     @MockBean
     private lateinit var qrQueue: BlockingQueue<Pair<String, String>>
+
+
 
     // Se ha modificado para hacer que la URI sea alcanzable (sino devolvía un 403 en
     // vez de un 307).
@@ -79,39 +83,45 @@ class UrlShortenerControllerTest {
 
 
     //Test para comprobar que se devuelve un QR
-    @Disabled
     @Test
     fun `creates returns a basic redirect if it can compute a hash with qr`() {
-        val shortUrl = ShortUrl("f684a3c4", Redirection("http://example.com/"))
+        val shortUrl =  ShortUrl(
+                      "f684a3c4",
+                            Redirection("http://example.com/"),
+                            OffsetDateTime.now(),
+                            ShortUrlProperties(ip = "127.0.0.1", qr = true)
+                        )
         given(
-                createShortUrlUseCase.create(
-                        url = "http://example.com/",
-                        data = ShortUrlProperties(ip = "127.0.0.1", qr = true)
-                )
+            createShortUrlUseCase.create(
+                    url = "http://example.com/",
+                    data = ShortUrlProperties(ip = "127.0.0.1", sponsor = null, qr = true, limit = null)
+            )
         ).willReturn(shortUrl)
+
+        given(reachableQueue.offer("http://example.com/")).willReturn(true)
 
         assertNotNull(shortUrl)
 
         mockMvc.perform(
-                post("/api/link")
-                        .param("url", "http://example.com/")
-                        .param("qr", "true")
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+            post("/api/link")
+                    .param("url", "http://example.com/")
+                    .param("qr", "true")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
         )
-                .andDo(print())
-                .andExpect(status().isCreated)
-                .andExpect(redirectedUrl("http://localhost/f684a3c4"))
-                .andExpect(
-                        content().json(
-                                """
-                {
-                  "url": "http://localhost/f684a3c4",
-                  "properties": {
-                    "qr": "http://localhost/f684a3c4/qr"
-                  }
-                }
-                """.trimIndent()
-                        )
+            .andDo(print())
+            .andExpect(status().isCreated)
+            .andExpect(redirectedUrl("http://localhost/f684a3c4"))
+            .andExpect(
+                content().json(
+                        """
+                            {
+                              "url": "http://localhost/f684a3c4",
+                              "properties": {
+                                "qr": "http://localhost/f684a3c4/qr"
+                              }
+                            }
+                        """.trimIndent()
+                    )
                 )
 
     }
