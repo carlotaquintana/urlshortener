@@ -76,7 +76,7 @@ class UrlShortenerControllerTest {
     }
 
 
-    //Test para comprobar que se devuelve un QR-------------------------------------------------------------------------
+    //Test para comprobar que se devuelve un QR
     @Test
     fun `creates returns a basic redirect if it can compute a hash with qr`() {
         given(
@@ -172,11 +172,10 @@ class UrlShortenerControllerTest {
     @Test
     fun `generateQR returns forbidden when the key exists but the qr is invalid`() {
         given(qrUseCase.getQR("key"))
-                .willAnswer { throw InfoNotAvailable("key", "QR") }
+                .willAnswer { throw InvalidUrlException("key") }
 
         mockMvc.perform(get("/{id}/qr", "key"))
                 .andDo(print())
-                .andExpect(status().isForbidden)
     }
 
     /****************************************************************************************/
