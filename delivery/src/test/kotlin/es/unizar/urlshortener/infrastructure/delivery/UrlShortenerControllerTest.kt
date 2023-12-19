@@ -53,6 +53,7 @@ class UrlShortenerControllerTest {
     @MockBean
     private lateinit var limitUseCase: LimitUseCase
 
+    @Suppress("UnusedPrivateMember")
     @MockBean
     private lateinit var colaQR: BlockingQueue<String>
 
