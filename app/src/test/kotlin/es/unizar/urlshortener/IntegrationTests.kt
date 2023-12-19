@@ -6,6 +6,7 @@ import com.jayway.jsonpath.JsonPath
 import es.unizar.urlshortener.infrastructure.delivery.ShortUrlDataOut
 import io.restassured.RestAssured
 import io.restassured.RestAssured.given
+import io.restassured.RestAssured.port
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.equalTo
@@ -20,7 +21,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.boot.test.web.client.getForEntity
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.*
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -28,6 +31,7 @@ import org.springframework.test.jdbc.JdbcTestUtils
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
 @Suppress("UnusedPrivateProperty")
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
@@ -126,6 +130,101 @@ class MetricsEndpointTest {
             .body("description", equalTo("The \"recent cpu usage\" for the Java Virtual Machine process"))
             .body("measurements[0].statistic", equalTo("VALUE"))
     }
+
+
+
+}
+
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+class QRTest {
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var restTemplate: TestRestTemplate
+
+    @LocalServerPort
+    private val localServerPort = 0
+
+    @BeforeEach
+    fun setUp() {
+        RestAssured.baseURI = "http://localhost"
+        RestAssured.port = localServerPort
+    }
+
+    private fun createShortUrlWithQR(originalUrl: String): ResponseEntity<ShortUrlDataOut> {
+        val requestHeaders = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_FORM_URLENCODED
+        }
+
+        val requestBody: MultiValueMap<String, String> = LinkedMultiValueMap<String, String>().apply {
+            add("url", originalUrl)
+            add("qr", "true")
+        }
+
+        val apiUrl = "http://localhost:$port/api/link"
+        val requestEntity = HttpEntity(requestBody, requestHeaders)
+
+        return restTemplate.postForEntity(apiUrl, requestEntity, ShortUrlDataOut::class.java)
+    }
+
+    private fun callQR(url: String): ResponseEntity<ByteArrayResource> {
+        return restTemplate.getForEntity(url, HttpHeaders(), ByteArrayResource::class.java)
+    }
+
+    @Test
+    fun `test creating a short URL returns a basic redirect with QR code`() {
+        // Act
+        val responseEntity = createShortUrlWithQR("http://example.com")
+
+        // Assert
+        assertThat(responseEntity.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(responseEntity.headers.location).isEqualTo(URI.create("http://localhost:$port/bf19bedb"))
+        assertThat(responseEntity.body?.url).isEqualTo(URI.create("http://localhost:$port/bf19bedb"))
+        assertThat(responseEntity.body?.properties?.get("qr")).isEqualTo("http://localhost:$port/bf19bedb/qr")
+
+        // Verify database state
+        assertThat(JdbcTestUtils.countRowsInTable(jdbcTemplate, "shorturl")).isEqualTo(1)
+        assertThat(JdbcTestUtils.countRowsInTable(jdbcTemplate, "click")).isEqualTo(0)
+    }
+
+    @Test
+    fun `test QR endpoint returns an image when the key exists`() {
+        // Arrange
+        createShortUrlWithQR("http://example.com")
+        TimeUnit.SECONDS.sleep(2L)
+
+        // Act
+        val qrCodeResponse = callQR("http://localhost:$port/bf19bedb/qr")
+
+        // Assert
+        assertThat(qrCodeResponse.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(qrCodeResponse.body).isNotNull
+    }
+
+    @Test
+    fun `test QR endpoint returns not found when the key does not exist`() {
+        // Act
+        val response = callQR("http://localhost:$port/bf19bedb/qr")
+
+        // Assert
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `test QR endpoint returns a bad request when the key exists but no QR code is available`() {
+        // Arrange
+        createShortUrlWithQR("http://example.com")
+        TimeUnit.SECONDS.sleep(2L)
+
+        //Act
+        val response = callQR("http://localhost:$port/bf19bedb/qr")
+
+        //Assert
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+    }
+
 
 }
 

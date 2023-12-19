@@ -5,6 +5,7 @@ package es.unizar.urlshortener.infrastructure.delivery
 import es.unizar.urlshortener.core.*
 import es.unizar.urlshortener.core.usecases.*
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
@@ -75,6 +76,46 @@ class UrlShortenerControllerTest {
 
         verify(logClickUseCase).logClick("key", ClickProperties(ip = "127.0.0.1"))
     }
+
+
+    //Test para comprobar que se devuelve un QR
+    @Disabled
+    @Test
+    fun `creates returns a basic redirect if it can compute a hash with qr`() {
+        val shortUrl = ShortUrl("f684a3c4", Redirection("http://example.com/"))
+        given(
+                createShortUrlUseCase.create(
+                        url = "http://example.com/",
+                        data = ShortUrlProperties(ip = "127.0.0.1", qr = true)
+                )
+        ).willReturn(shortUrl)
+
+        assertNotNull(shortUrl)
+
+        mockMvc.perform(
+                post("/api/link")
+                        .param("url", "http://example.com/")
+                        .param("qr", "true")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+        )
+                .andDo(print())
+                .andExpect(status().isCreated)
+                .andExpect(redirectedUrl("http://localhost/f684a3c4"))
+                .andExpect(
+                        content().json(
+                                """
+                {
+                  "url": "http://localhost/f684a3c4",
+                  "properties": {
+                    "qr": "http://localhost/f684a3c4/qr"
+                  }
+                }
+                """.trimIndent()
+                        )
+                )
+
+    }
+
 
     @Test
     fun `creates returns bad request if it can compute a hash`() {
